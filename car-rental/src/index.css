@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    background-color: #FAFAF7;
+    color: #152B21;
+    font-family: 'DM Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 { font-family: 'Playfair Display', serif; }
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.92) translateY(16px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.modal-backdrop { animation: fadeIn 0.2s ease forwards; }
+.modal-box      { animation: modalIn 0.28s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+.car-card { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+.car-card:hover { transform: translateY(-4px); box-shadow: 0 20px 48px rgba(21,43,33,0.12); }
+
+.btn-primary { transition: background 0.18s ease, transform 0.12s ease; }
+.btn-primary:active { transform: scale(0.97); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  background: #F0EDE6;
+  color: #152B21;
+}

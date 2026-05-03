@@ -1,0 +1,76 @@
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { today } from '../utils/helpers'
+
+export default function SearchBar({ initialValues = {}, compact = false }) {
+  const navigate = useNavigate()
+  const [form, setForm] = useState({
+    location:   initialValues.location   || '',
+    pickup:     initialValues.pickup     || today(),
+    returnDate: initialValues.returnDate || '',
+    available:  initialValues.available  || 'true',
+  })
+  const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
+
+  const handleSearch = (e) => {
+    e.preventDefault()
+    const params = new URLSearchParams({
+      location:   form.location,
+      pickup:     form.pickup,
+      returnDate: form.returnDate,
+      available:  form.available,
+    })
+    navigate(`/results?${params}`)
+  }
+
+  const inputCls = `w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-forest
+    placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange/30 focus:border-orange transition-all`
+  const labelCls = 'block text-xs font-semibold text-forest/60 uppercase tracking-wider mb-1.5'
+
+  if (compact) return (
+    <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div><label className={labelCls}>Location</label><input className={inputCls} placeholder="City" value={form.location} onChange={set('location')} /></div>
+        <div><label className={labelCls}>Pickup</label><input type="date" className={inputCls} min={today()} value={form.pickup} onChange={set('pickup')} /></div>
+        <div><label className={labelCls}>Return</label><input type="date" className={inputCls} min={form.pickup || today()} value={form.returnDate} onChange={set('returnDate')} /></div>
+        <div>
+          <label className={labelCls}>Availability</label>
+          <select className={inputCls} value={form.available} onChange={set('available')}>
+            <option value="true">Available Only</option>
+            <option value="">All Vehicles</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" className="mt-3 w-full bg-orange text-white font-semibold text-sm py-3 rounded-xl hover:bg-orange/90 transition-colors">Update Search</button>
+    </form>
+  )
+
+  return (
+    <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-2xl shadow-black/20 p-6 w-full max-w-4xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div>
+          <label className={labelCls}>📍 Pickup Location</label>
+          <input className={inputCls} placeholder="City or Airport" value={form.location} onChange={set('location')} required />
+        </div>
+        <div>
+          <label className={labelCls}>📅 Pickup Date</label>
+          <input type="date" className={inputCls} min={today()} value={form.pickup} onChange={set('pickup')} required />
+        </div>
+        <div>
+          <label className={labelCls}>📅 Return Date</label>
+          <input type="date" className={inputCls} min={form.pickup || today()} value={form.returnDate} onChange={set('returnDate')} required />
+        </div>
+        <div>
+          <label className={labelCls}>🚗 Availability</label>
+          <select className={inputCls} value={form.available} onChange={set('available')}>
+            <option value="true">Available Only</option>
+            <option value="">All Vehicles</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" className="btn-primary mt-6 w-full bg-orange text-white font-semibold text-base py-3.5 rounded-xl hover:bg-orange/90 tracking-wide">
+        Search Available Cars
+      </button>
+    </form>
+  )
+}
