@@ -112,6 +112,7 @@ export default function Profile() {
                 </div>
                 <div><label className={labelCls}>Contact No</label><input className={inputCls} value={form.contact_no || ''} onChange={(e) => setForm((p) => ({ ...p, contact_no: e.target.value }))} /></div>
                 <div><label className={labelCls}>Driving Licence</label><input className={inputCls} value={form.driving_license || ''} onChange={(e) => setForm((p) => ({ ...p, driving_license: e.target.value }))} /></div>
+                <div><label className={labelCls}>House No / Street</label><input className={inputCls} value={form.house_no || ''} onChange={(e) => setForm((p) => ({ ...p, house_no: e.target.value }))} /></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div><label className={labelCls}>City</label><input className={inputCls} value={form.city || ''} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} /></div>
                   <div><label className={labelCls}>Country</label><input className={inputCls} value={form.country || ''} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))} /></div>
@@ -129,9 +130,9 @@ export default function Profile() {
                   ['Name',     `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || '—'],
                   ['Contact',  profile.contact_no      || '—'],
                   ['Licence',  profile.driving_license || '—'],
+                  ['House No', profile.house_no        || '—'],
                   ['City',     profile.city            || '—'],
                   ['Country',  profile.country         || '—'],
-                  ['Member ID', `#${profile.cust_id}`],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{label}</span>

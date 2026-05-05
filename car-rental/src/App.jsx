@@ -9,6 +9,7 @@ import Booking    from './pages/Booking'
 import Payment    from './pages/Payment'
 import MyBookings from './pages/MyBookings'
 import Profile    from './pages/Profile'
+import Admin      from './pages/admin'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="/payment"  element={<Payment />}    />
             <Route path="/bookings" element={<MyBookings />} />
             <Route path="/profile"  element={<Profile />}    />
+            <Route path="/admin"    element={<Admin />}      />
           </Routes>
         </div>
       </AuthProvider>
