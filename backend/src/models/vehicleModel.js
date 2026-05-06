@@ -41,12 +41,13 @@ export const create = async (data) => {
     registered_by,
     managed_by,
     vehicle_type,
+    image_url,
   } = data;
 
   const [result] = await db.execute(
     `INSERT INTO vehicle
-       (plate_no, model, mileage, daily_price, \`condition\`, availability, registered_by, managed_by, vehicle_type)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (plate_no, model, mileage, daily_price, \`condition\`, availability, registered_by, managed_by, vehicle_type, image_url)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       plate_no,
       model,
@@ -57,6 +58,7 @@ export const create = async (data) => {
       registered_by ?? null,
       managed_by    ?? null,
       vehicle_type  ?? null,
+      image_url     ?? null,
     ]
   );
   return result;
@@ -74,6 +76,7 @@ export const update = async (vehicleId, data) => {
     registered_by,
     managed_by,
     vehicle_type,
+    image_url,
   } = data;
 
   const [result] = await db.execute(
@@ -86,7 +89,8 @@ export const update = async (vehicleId, data) => {
          availability  = COALESCE(?, availability),
          registered_by = COALESCE(?, registered_by),
          managed_by    = COALESCE(?, managed_by),
-         vehicle_type  = COALESCE(?, vehicle_type)
+         vehicle_type  = COALESCE(?, vehicle_type),
+         image_url     = COALESCE(?, image_url)
      WHERE vehicle_id = ?`,
     [
       plate_no      ?? null,
@@ -98,6 +102,7 @@ export const update = async (vehicleId, data) => {
       registered_by ?? null,
       managed_by    ?? null,
       vehicle_type  ?? null,
+      image_url     ?? null,
       vehicleId,
     ]
   );

@@ -5,7 +5,7 @@ import { formatCurrency, conditionColor } from '../utils/helpers'
 
 const CAR_IMAGES = [
   'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=600&q=80',
-  'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=600&q=80',
+  'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80', // Replaced the noodle with this one
   'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80',
   'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600&q=80',
   'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=600&q=80',
@@ -20,16 +20,22 @@ export default function CarCard({ vehicle, searchParams = {} }) {
   const { requireAuth } = useAuth()
   const navigate = useNavigate()
 
-  const { vehicle_id, model, daily_price, condition, availability, plate_no, mileage, vehicle_type } = vehicle
+  const { vehicle_id, model, daily_price, condition, availability, plate_no, mileage, vehicle_type, image_url } = vehicle
 
   const handleBook = () => {
     requireAuth(() => navigate('/booking', { state: { vehicle, searchParams } }))
   }
 
+  const getFinalImageUrl = (url, id) => {
+    if (!url) return getImage(id);
+    if (url.startsWith('http')) return url;
+    return `/cars/${url}?v=2`;
+  };
+
   return (
     <div className="car-card bg-white rounded-2xl overflow-hidden border border-gray-100 flex flex-col">
       <div className="relative h-48 overflow-hidden bg-gray-100">
-        <img src={getImage(vehicle_id)} alt={model}
+        <img src={getFinalImageUrl(image_url, vehicle_id)} alt={model}
           className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
           onError={(e) => { e.target.src = CAR_IMAGES[0] }} />
         {!availability && (

@@ -20,7 +20,7 @@ const EMPTY_VEHICLE = {
   plate_no: '', model: '', mileage: 0,
   daily_price: '', condition: 'Good',
   availability: true, vehicle_type: 'Sedan',
-  registered_by: '', managed_by: '',
+  registered_by: '', managed_by: '', image_url: '',
 }
 
 const EMPTY_EMPLOYEE = {
@@ -398,6 +398,10 @@ export default function Admin() {
                 <label className={labelCls}>Plate No *</label>
                 <input className={inputCls} placeholder="e.g. MH12AB1234" value={vehicleForm.plate_no} onChange={setV('plate_no')} required />
               </div>
+            </div>
+            <div>
+              <label className={labelCls}>Image URL</label>
+              <input className={inputCls} placeholder="e.g. 'thar.jpg' or 'https://...'" value={vehicleForm.image_url || ''} onChange={setV('image_url')} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
