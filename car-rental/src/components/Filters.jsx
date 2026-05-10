@@ -2,16 +2,16 @@ import React from 'react'
 
 const VEHICLE_TYPES = ['SUV', 'Sedan', 'MUV', 'EV']
 const CONDITIONS    = ['Excellent', 'Good', 'Fair', 'Poor']
-const PRICE_BANDS   = [
-  { label: 'Under ₹2,000',      max: 2000   },
-  { label: '₹2,000 – ₹5,000',  max: 5000   },
-  { label: '₹5,000 – ₹10,000', max: 10000  },
-  { label: 'Above ₹10,000',     max: 999999 },
+export const PRICE_BANDS   = [
+  { id: 't1', label: 'Under ₹2,000',      min: 0, max: 2000   },
+  { id: 't2', label: '₹2,000 – ₹5,000',  min: 2000, max: 5000   },
+  { id: 't3', label: '₹5,000 – ₹10,000', min: 5000, max: 10000  },
+  { id: 't4', label: 'Above ₹10,000',     min: 10000, max: 9999999 },
 ]
 
 export default function Filters({ filters, setFilters }) {
   const toggle = (k, v) => setFilters((p) => ({ ...p, [k]: p[k] === v ? '' : v }))
-  const clear  = () => setFilters({ vehicleType: '', condition: '', maxPrice: '', available: 'true' })
+  const clear  = () => setFilters({ vehicleType: '', condition: '', priceBand: '', available: 'true' })
 
   return (
     <aside className="bg-white rounded-2xl border border-gray-100 p-5 sticky top-24">
@@ -62,12 +62,12 @@ export default function Filters({ filters, setFilters }) {
       {/* Price */}
       <div>
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Max Price / Day</p>
-        {PRICE_BANDS.map(({ label, max }) => (
-          <button key={label} onClick={() => toggle('maxPrice', max)}
+        {PRICE_BANDS.map(({ label, id }) => (
+          <button key={label} onClick={() => toggle('priceBand', id)}
             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium border mb-2 transition-all
-              ${filters.maxPrice === max ? 'bg-orange/10 border-orange/30 text-orange' : 'border-gray-100 text-forest hover:border-orange/20'}`}>
+              ${filters.priceBand === id ? 'bg-orange/10 border-orange/30 text-orange' : 'border-gray-100 text-forest hover:border-orange/20'}`}>
             {label}
-            {filters.maxPrice === max && <span>✓</span>}
+            {filters.priceBand === id && <span>✓</span>}
           </button>
         ))}
       </div>

@@ -28,6 +28,12 @@ export const getStats = asyncHandler(async (_req, res) => {
     cancelledReservations,
     totalRevenue,
     topRentedVehicles,
+    activeReservations,
+    completedRentals,
+    recentBookings,
+    reservationsPerDay,
+    revenuePerDay,
+    bookingsByVehicleType
   ] = await Promise.all([
     VehicleModel.countAll(),
     VehicleModel.countAvailable(),
@@ -36,6 +42,12 @@ export const getStats = asyncHandler(async (_req, res) => {
     ReservationModel.countCancelled(),
     RentModel.totalRevenue(),
     RentModel.topRentedVehicles(),
+    ReservationModel.countActive(),
+    RentModel.countCompleted(),
+    ReservationModel.getRecent(10),
+    ReservationModel.getReservationsPerDay(),
+    RentModel.getRevenuePerDay(),
+    ReservationModel.getBookingsByVehicleType()
   ]);
 
   res.status(200).json({
@@ -48,6 +60,12 @@ export const getStats = asyncHandler(async (_req, res) => {
       cancelledReservations,
       totalRevenue,
       topRentedVehicles,
+      activeReservations,
+      completedRentals,
+      recentBookings,
+      reservationsPerDay,
+      revenuePerDay,
+      bookingsByVehicleType
     },
   });
 });

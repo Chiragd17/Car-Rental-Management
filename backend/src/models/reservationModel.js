@@ -94,3 +94,50 @@ export const countCancelled = async () => {
   );
   return rows[0].total;
 };
+
+export const countActive = async () => {
+  const [rows] = await db.execute(
+    'SELECT COUNT(*) AS total FROM reservation WHERE pickup_date <= NOW() AND return_date >= NOW() AND cancellation_details IS NULL'
+  );
+  return rows[0].total;
+};
+
+export const getRecent = async (limit = 10) => {
+  // We need to pass limit directly into the query string for mysql2 if not using named placeholders properly for LIMIT, 
+  // but execute supports ? for LIMIT in mysql2. Let's use template literal just to be safe if `limit` is a number.
+  const [rows] = await db.execute(
+    `SELECT r.reserve_id, r.reserve_date, r.pickup_date, r.return_date, r.pickup_location, r.cancellation_details,
+            c.first_name, c.last_name, c.email,
+            v.model, v.vehicle_type, v.daily_price,
+            (r.number_of_days * v.daily_price) AS estimated_total,
+            rn.total_pay
+     FROM reservation r
+     JOIN customer c ON r.cust_id = c.cust_id
+     JOIN vehicle v ON r.vehicle_id = v.vehicle_id
+     LEFT JOIN rent rn ON r.reserve_id = rn.reserve_id
+     ORDER BY r.reserve_date DESC
+     LIMIT ${Number(limit)}`
+  );
+  return rows;
+};
+
+export const getReservationsPerDay = async () => {
+  const [rows] = await db.execute(
+    `SELECT DATE(reserve_date) as date, COUNT(*) as count
+     FROM reservation
+     GROUP BY DATE(reserve_date)
+     ORDER BY DATE(reserve_date) ASC
+     LIMIT 30`
+  );
+  return rows;
+};
+
+export const getBookingsByVehicleType = async () => {
+  const [rows] = await db.execute(
+    `SELECT v.vehicle_type as name, COUNT(*) as value
+     FROM reservation r
+     JOIN vehicle v ON r.vehicle_id = v.vehicle_id
+     GROUP BY v.vehicle_type`
+  );
+  return rows;
+};

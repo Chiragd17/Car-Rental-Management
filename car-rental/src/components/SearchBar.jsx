@@ -2,6 +2,53 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { today } from '../utils/helpers'
 
+const CITIES = [
+  'Mumbai - Marine Drive',
+  'Delhi - India Gate',
+  'Bangalore - MG Road',
+  'Hyderabad - Charminar',
+  'Chennai - Marina Beach',
+  'Kolkata - Victoria Memorial',
+  'Pune - Shaniwar Wada',
+  'Ahmedabad - Sabarmati Ashram',
+  'Goa - Baga Beach',
+  'Jaipur - Hawa Mahal',
+]
+
+function LocationInput({ value, onChange, className, placeholder, required }) {
+  const [open, setOpen] = useState(false)
+  
+  const filtered = CITIES.filter(c => c.toLowerCase().includes(value.toLowerCase()))
+
+  return (
+    <div className="relative">
+      <input
+        className={className}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => { onChange(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 200)}
+        required={required}
+      />
+      {open && (
+        <div className="absolute top-full left-0 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto">
+          {filtered.length > 0 ? filtered.map(city => (
+            <div key={city}
+              className="px-4 py-3 text-sm text-forest hover:bg-orange/10 hover:text-orange cursor-pointer transition-colors border-b border-gray-50 last:border-0"
+              onClick={() => { onChange(city); setOpen(false) }}
+            >
+              {city}
+            </div>
+          )) : (
+            <div className="px-4 py-3 text-sm text-gray-400">No matches found</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function SearchBar({ initialValues = {}, compact = false }) {
   const navigate = useNavigate()
   const [form, setForm] = useState({
@@ -30,7 +77,7 @@ export default function SearchBar({ initialValues = {}, compact = false }) {
   if (compact) return (
     <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div><label className={labelCls}>Location</label><input className={inputCls} placeholder="City" value={form.location} onChange={set('location')} /></div>
+        <div><label className={labelCls}>Location</label><LocationInput className={inputCls} placeholder="City or Airport" value={form.location} onChange={(v) => setForm(p => ({...p, location: v}))} /></div>
         <div><label className={labelCls}>Pickup</label><input type="date" className={inputCls} min={today()} value={form.pickup} onChange={set('pickup')} /></div>
         <div><label className={labelCls}>Return</label><input type="date" className={inputCls} min={form.pickup || today()} value={form.returnDate} onChange={set('returnDate')} /></div>
         <div>
@@ -50,7 +97,7 @@ export default function SearchBar({ initialValues = {}, compact = false }) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <div>
           <label className={labelCls}>📍 Pickup Location</label>
-          <input className={inputCls} placeholder="City or Airport" value={form.location} onChange={set('location')} required />
+          <LocationInput className={inputCls} placeholder="City or Airport" value={form.location} onChange={(v) => setForm(p => ({...p, location: v}))} required />
         </div>
         <div>
           <label className={labelCls}>📅 Pickup Date</label>

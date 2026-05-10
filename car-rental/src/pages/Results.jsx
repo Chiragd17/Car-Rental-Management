@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import CarCard from '../components/CarCard'
-import Filters from '../components/Filters'
+import Filters, { PRICE_BANDS } from '../components/Filters'
 import SearchBar from '../components/SearchBar'
 import { getVehicles } from '../services/api'
 
@@ -12,9 +12,9 @@ export default function Results() {
   const [error,    setError]    = useState('')
 
   const [filters, setFilters] = useState({
-    vehicleType: '',
-    condition:   '',
-    maxPrice:    '',
+    vehicleType: searchParams.get('vehicleType') ?? '',
+    condition:   searchParams.get('condition') ?? '',
+    priceBand:   searchParams.get('priceBand') ?? '',
     available:   searchParams.get('available') ?? 'true',
   })
 
@@ -41,7 +41,11 @@ export default function Results() {
   const displayed = vehicles.filter((v) => {
     if (filters.vehicleType && v.vehicle_type !== filters.vehicleType) return false
     if (filters.condition   && v.condition    !== filters.condition)   return false
-    if (filters.maxPrice    && Number(v.daily_price) > Number(filters.maxPrice)) return false
+    if (filters.priceBand) {
+      const band = PRICE_BANDS.find(b => b.id === filters.priceBand)
+      const price = Number(v.daily_price)
+      if (band && (price < band.min || price > band.max)) return false
+    }
     return true
   })
 

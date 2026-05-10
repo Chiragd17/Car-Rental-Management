@@ -75,7 +75,6 @@ export const totalRevenue = async () => {
   return rows[0].revenue;
 };
 
-// ── Dashboard: top 5 most rented vehicles ───────────────────
 export const topRentedVehicles = async () => {
   const [rows] = await db.execute(
     `SELECT v.vehicle_id, v.model, v.plate_no, COUNT(*) AS rent_count
@@ -84,6 +83,22 @@ export const topRentedVehicles = async () => {
      GROUP BY v.vehicle_id, v.model, v.plate_no
      ORDER BY rent_count DESC
      LIMIT 5`
+  );
+  return rows;
+};
+
+export const countCompleted = async () => {
+  const [rows] = await db.execute('SELECT COUNT(*) AS total FROM rent');
+  return rows[0].total;
+};
+
+export const getRevenuePerDay = async () => {
+  const [rows] = await db.execute(
+    `SELECT DATE(pay_date) as date, SUM(total_pay) as revenue
+     FROM rent
+     GROUP BY DATE(pay_date)
+     ORDER BY DATE(pay_date) ASC
+     LIMIT 30`
   );
   return rows;
 };

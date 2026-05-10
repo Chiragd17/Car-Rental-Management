@@ -5,11 +5,13 @@ import {
   getDashboardStats,
   getAllVehicles,
   createVehicle,
+  updateVehicle,
   deleteVehicle,
   getAllEmployees,
   createEmployee,
 } from '../services/adminApi'
 import { formatCurrency, formatDate } from '../utils/helpers'
+import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const TABS = ['Dashboard', 'Vehicles', 'Employees']
 const CONDITIONS = ['Excellent', 'Good', 'Fair', 'Poor']
@@ -144,6 +146,16 @@ export default function Admin() {
     } catch (err) { alert(err.message) }
   }
 
+  const handleEditImage = async (v) => {
+    const newUrl = window.prompt(`Enter new image URL for ${v.model}:`, v.image_url || '')
+    if (newUrl === null || newUrl === v.image_url) return // cancelled or unchanged
+    
+    try {
+      await updateVehicle(v.vehicle_id, { image_url: newUrl })
+      setVehicles((p) => p.map((car) => car.vehicle_id === v.vehicle_id ? { ...car, image_url: newUrl } : car))
+    } catch (err) { alert(err.message) }
+  }
+
   const handleAddEmployee = async (e) => {
     e.preventDefault(); setFormError(''); setFormLoading(true)
     try {
@@ -211,52 +223,152 @@ export default function Admin() {
               </div>
             ) : stats ? (
               <>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                  <StatCard icon="🚗" label="Total Vehicles" value={stats.totalVehicles} color="orange" />
-                  <StatCard icon="✅" label="Available" value={stats.availableVehicles} color="green"
-                    sub={`${stats.totalVehicles - stats.availableVehicles} rented`} />
-                  <StatCard icon="👥" label="Customers" value={stats.totalCustomers} color="blue" />
-                  <StatCard icon="📋" label="Reservations" value={stats.totalReservations} color="purple"
-                    sub={`${stats.cancelledReservations} cancelled`} />
-                  <StatCard icon="💰" label="Total Revenue" value={formatCurrency(stats.totalRevenue)} color="green" />
+                {/* 1. ANALYTICS CARDS (Top Section) */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <StatCard icon="🟢" label="Active Reservations" value={stats.activeReservations || 0} color="green" />
+                  <StatCard icon="✅" label="Completed Rentals" value={stats.completedRentals || 0} color="blue" />
+                  <StatCard icon="❌" label="Cancelled" value={stats.cancelledReservations || 0} color="red" />
+                  <StatCard icon="💰" label="Revenue Generated" value={formatCurrency(stats.totalRevenue || 0)} color="orange" />
+                  <StatCard icon="🏆" label="Top Vehicle Type" value={
+                    stats.bookingsByVehicleType?.length > 0 
+                      ? stats.bookingsByVehicleType.sort((a,b) => b.value - a.value)[0].name 
+                      : 'N/A'
+                  } color="purple" />
                 </div>
 
-                {stats.topRentedVehicles?.length > 0 && (
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                    <h2 className="font-display font-bold text-xl text-forest mb-5">🏆 Top Rented Vehicles</h2>
-                    <div className="space-y-3">
-                      {stats.topRentedVehicles.map((v, i) => (
-                        <div key={v.vehicle_id} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
-                          <div className="flex items-center gap-3">
-                            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? 'bg-yellow-100 text-yellow-600' :
-                              i === 1 ? 'bg-gray-100 text-gray-500' :
-                                i === 2 ? 'bg-orange-100 text-orange-600' : 'bg-cream text-forest'
-                              }`}>{i + 1}</span>
-                            <div>
-                              <p className="font-semibold text-forest text-sm">{v.model}</p>
-                              <p className="text-xs text-gray-400 font-mono">{v.plate_no}</p>
-                            </div>
-                          </div>
-                          <span className="text-sm font-bold text-orange">{v.rent_count} rents</span>
+                {/* 2. GRAPHS (Middle Section) */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Reservations Per Day */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm lg:col-span-2">
+                    <h3 className="font-display font-bold text-lg text-forest mb-6">Reservations (Last 30 Days)</h3>
+                    <div className="h-64 w-full">
+                      {stats.reservationsPerDay?.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={stats.reservationsPerDay}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} 
+                                   tickFormatter={(str) => new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
+                            <Tooltip cursor={{ fill: '#f9fafb' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                            <Bar dataKey="count" fill="#E85D04" radius={[4, 4, 0, 0]} barSize={30} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                          <span className="text-3xl mb-2">📊</span>
+                          <p>No reservation data yet</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Vehicle Type Distribution */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                    <h3 className="font-display font-bold text-lg text-forest mb-6">Booking Distribution</h3>
+                    <div className="h-64 w-full">
+                      {stats.bookingsByVehicleType?.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={stats.bookingsByVehicleType}
+                              cx="50%" cy="50%"
+                              innerRadius={60} outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="value"
+                              stroke="none"
+                            >
+                              {stats.bookingsByVehicleType.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={['#1F2E23', '#E85D04', '#F4A261', '#E9C46A'][index % 4]} />
+                              ))}
+                            </Pie>
+                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                          <span className="text-3xl mb-2">🥧</span>
+                          <p>No vehicle data yet</p>
+                        </div>
+                      )}
+                    </div>
+                    {/* Custom Legend */}
+                    <div className="flex flex-wrap justify-center gap-3 mt-4">
+                      {stats.bookingsByVehicleType?.map((entry, index) => (
+                        <div key={entry.name} className="flex items-center gap-1.5 text-xs text-gray-600">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: ['#1F2E23', '#E85D04', '#F4A261', '#E9C46A'][index % 4] }} />
+                          {entry.name}
                         </div>
                       ))}
                     </div>
                   </div>
-                )}
+                </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[
-                    { icon: '🚗', label: 'Add Vehicle', action: () => { setActiveTab('Vehicles'); setTimeout(() => setShowVehicleModal(true), 300) } },
-                    { icon: '👨‍💼', label: 'Add Employee', action: () => { setActiveTab('Employees'); setTimeout(() => setShowEmployeeModal(true), 300) } },
-                    { icon: '📋', label: 'My Bookings', action: () => navigate('/bookings') },
-                    { icon: '🏠', label: 'View Site', action: () => navigate('/') },
-                  ].map(({ icon, label, action }) => (
-                    <button key={label} onClick={action}
-                      className="bg-white border border-gray-100 rounded-2xl p-5 text-left hover:border-orange/30 hover:shadow-md transition-all group">
-                      <div className="text-2xl mb-2">{icon}</div>
-                      <div className="font-semibold text-forest text-sm group-hover:text-orange transition-colors">{label}</div>
-                    </button>
-                  ))}
+                {/* 3. RECENT BOOKINGS TABLE */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mt-2">
+                  <div className="p-6 border-b border-gray-50 flex justify-between items-center">
+                    <h3 className="font-display font-bold text-lg text-forest">Recent Bookings</h3>
+                    <span className="text-xs font-semibold text-orange bg-orange/10 px-3 py-1 rounded-full">Live Updates</span>
+                  </div>
+                  
+                  {stats.recentBookings?.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm whitespace-nowrap">
+                        <thead className="bg-gray-50/50 text-gray-500 font-medium">
+                          <tr>
+                            <th className="px-6 py-4">Customer</th>
+                            <th className="px-6 py-4">Vehicle</th>
+                            <th className="px-6 py-4">Dates</th>
+                            <th className="px-6 py-4">Amount</th>
+                            <th className="px-6 py-4">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {stats.recentBookings.map((booking) => {
+                            // Determine status
+                            let status = { label: 'Pending', color: 'bg-yellow-100 text-yellow-700' };
+                            if (booking.cancellation_details) {
+                              status = { label: 'Cancelled', color: 'bg-red-100 text-red-700' };
+                            } else if (booking.total_pay) {
+                              status = { label: 'Paid', color: 'bg-green-100 text-green-700' };
+                            } else if (new Date(booking.return_date) < new Date()) {
+                              status = { label: 'Completed', color: 'bg-blue-100 text-blue-700' };
+                            }
+
+                            return (
+                              <tr key={booking.reserve_id} className="hover:bg-gray-50/50 transition-colors">
+                                <td className="px-6 py-4">
+                                  <div className="font-semibold text-forest">{booking.first_name} {booking.last_name}</div>
+                                  <div className="text-xs text-gray-400">{booking.email}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="font-semibold text-forest">{booking.model}</div>
+                                  <div className="text-xs text-gray-400">{booking.vehicle_type}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="text-gray-600">{formatDate(booking.pickup_date)}</div>
+                                  <div className="text-xs text-gray-400">to {formatDate(booking.return_date)}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="font-bold text-forest">{formatCurrency(booking.total_pay || booking.estimated_total)}</div>
+                                  <div className="text-xs text-gray-400">{booking.total_pay ? 'Paid' : 'Est. Total'}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${status.color}`}>
+                                    {status.label}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-12 flex flex-col items-center justify-center text-gray-400">
+                      <span className="text-4xl mb-3">📋</span>
+                      <p>No recent bookings found.</p>
+                    </div>
+                  )}
                 </div>
               </>
             ) : null}
@@ -313,7 +425,11 @@ export default function Admin() {
                             {v.availability ? 'Available' : 'Booked'}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 flex gap-2">
+                          <button onClick={() => handleEditImage(v)}
+                            className="text-xs text-orange hover:text-orange/80 font-medium px-3 py-1 rounded-lg border border-orange/30 hover:bg-orange/10 transition-colors">
+                            Edit Image
+                          </button>
                           <button onClick={() => handleDeleteVehicle(v.vehicle_id)}
                             className="text-xs text-red-500 hover:text-red-700 font-medium px-3 py-1 rounded-lg border border-red-100 hover:bg-red-50 transition-colors">
                             Delete
