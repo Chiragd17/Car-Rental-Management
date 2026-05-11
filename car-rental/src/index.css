@@ -40,3 +40,22 @@
   background: #F0EDE6;
   color: #152B21;
 }
+
+/* Thin custom scrollbar for the filters sidebar */
+.filters-sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+.filters-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.filters-sidebar::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 999px;
+}
+.filters-sidebar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+.filters-sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}

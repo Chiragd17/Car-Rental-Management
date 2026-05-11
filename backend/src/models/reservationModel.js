@@ -39,7 +39,7 @@ export const findByCustomerId = async (custId) => {
      FROM reservation r
      JOIN vehicle v ON r.vehicle_id = v.vehicle_id
      WHERE r.cust_id = ?
-     ORDER BY r.reserve_date DESC`,
+     ORDER BY r.reserve_date DESC, r.reserve_id DESC`,
     [custId]
   );
   return rows;
@@ -60,14 +60,30 @@ export const update = async (reserveId, data) => {
   return result;
 };
 
-// ── Cancel (soft-cancel: store reason + restore vehicle) ────
+// ── Cancel (soft-cancel: store reason, details, and refund info) ────
 // This runs inside a transaction via a controller-supplied connection
-export const cancel = async (reserveId, cancellationDetails, connection) => {
+export const cancel = async (reserveId, cancelData, connection) => {
+  const {
+    cancellation_details,
+    cancellation_reason,
+    refund_amount,
+    refund_percentage,
+  } = cancelData;
+
   const [result] = await connection.execute(
     `UPDATE reservation
-     SET cancellation_details = ?
+     SET cancellation_details = ?,
+         cancellation_reason  = ?,
+         refund_amount        = ?,
+         refund_percentage    = ?
      WHERE reserve_id = ?`,
-    [cancellationDetails || 'Cancelled by customer', reserveId]
+    [
+      cancellation_details || 'Cancelled by customer',
+      cancellation_reason  || 'Not specified',
+      refund_amount        ?? 0,
+      refund_percentage    ?? 0,
+      reserveId,
+    ]
   );
   return result;
 };
@@ -107,6 +123,7 @@ export const getRecent = async (limit = 10) => {
   // but execute supports ? for LIMIT in mysql2. Let's use template literal just to be safe if `limit` is a number.
   const [rows] = await db.execute(
     `SELECT r.reserve_id, r.reserve_date, r.pickup_date, r.return_date, r.pickup_location, r.cancellation_details,
+            r.cancellation_reason, r.refund_amount, r.refund_percentage,
             c.first_name, c.last_name, c.email,
             v.model, v.vehicle_type, v.daily_price,
             (r.number_of_days * v.daily_price) AS estimated_total,

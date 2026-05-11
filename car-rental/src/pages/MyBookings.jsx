@@ -28,10 +28,19 @@ export default function MyBookings() {
     fetch()
   }, [user])
 
-  const handleCancelled = (reserve_id) => {
+  // Called by BookingCard after a successful cancellation
+  // Receives the reserve_id and full cancellation data from the API response
+  const handleCancelled = (reserve_id, cancelData) => {
     setReservations((prev) =>
       prev.map((r) => r.reserve_id === reserve_id
-        ? { ...r, cancellation_details: 'Cancelled by customer' }
+        ? {
+            ...r,
+            cancellation_details: cancelData.cancellation_details,
+            cancellation_reason:  cancelData.cancellation_reason,
+            refund_amount:        cancelData.refund_amount,
+            refund_percentage:    cancelData.refund_percentage,
+            damage_compensation:  cancelData.damage_compensation,
+          }
         : r
       )
     )

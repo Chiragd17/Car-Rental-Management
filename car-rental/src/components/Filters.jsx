@@ -14,7 +14,7 @@ export default function Filters({ filters, setFilters }) {
   const clear  = () => setFilters({ vehicleType: '', condition: '', priceBand: '', available: 'true' })
 
   return (
-    <aside className="bg-white rounded-2xl border border-gray-100 p-5 sticky top-24">
+    <aside className="filters-sidebar bg-white rounded-2xl border border-gray-100 p-5 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-display font-semibold text-base text-forest">Filters</h3>
         <button onClick={clear} className="text-xs text-orange hover:underline">Clear all</button>

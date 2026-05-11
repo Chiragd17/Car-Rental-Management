@@ -20,6 +20,32 @@ import db from '../config/db.js';
 import * as ReservationModel from '../models/reservationModel.js';
 import * as VehicleModel from '../models/vehicleModel.js';
 import * as CustomerModel from '../models/customerModel.js';
+import * as RentModel from '../models/rentModel.js';
+
+// ─────────────────────────────────────────────────────────────
+// Refund Policy — calculates refund percentage based on days
+// until pickup date
+// ─────────────────────────────────────────────────────────────
+function calculateRefundPercentage(pickupDate) {
+  const now = new Date();
+  
+  // Robust parsing: convert to ISO string and slice to get YYYY-MM-DD
+  const dateStr = typeof pickupDate === 'string' 
+    ? pickupDate 
+    : new Date(pickupDate).toISOString();
+  const yyyymmdd = dateStr.slice(0, 10);
+  
+  // Assuming standard pickup starts at 09:00 AM on the pickup date
+  const pickup = new Date(`${yyyymmdd}T09:00:00`);
+  
+  const diffMs = pickup.getTime() - now.getTime();
+  const hoursUntilPickup = diffMs / (1000 * 60 * 60);
+
+  if (hoursUntilPickup > 48) return 100;    // > 48 hours → 100% refund
+  if (hoursUntilPickup >= 24) return 75;    // 24–48 hours → 75% refund
+  if (hoursUntilPickup >= 12) return 50;    // 12–24 hours → 50% refund
+  return 0;                                 // < 12 hours or after pickup starts → 0% refund
+}
 
 // ─────────────────────────────────────────────────────────────
 // POST /reservations — Create a reservation + mark vehicle unavailable
@@ -135,34 +161,79 @@ export const update = asyncHandler(async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// DELETE /reservations/:id — Cancel reservation + restore vehicle
+// DELETE /reservations/:id — Cancel reservation + calculate
+// refund + restore vehicle availability
 // ─────────────────────────────────────────────────────────────
 export const cancel = asyncHandler(async (req, res) => {
   const reserveId = req.params.id;
+  const {
+    cancellation_reason = 'Not specified',
+    cancellation_details = 'Cancelled by customer',
+  } = req.body;
 
   // ── Begin transaction ─────────────────────────────────────
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
-    // 1. Fetch the reservation (on the transactional connection)
-    const reservation = await ReservationModel.findByIdRaw(reserveId, connection);
+    // 1. Fetch the reservation (with estimated_total via JOIN)
+    const reservation = await ReservationModel.findById(reserveId);
     if (!reservation) {
       throw new ApiError(404, `Reservation ${reserveId} not found`);
     }
 
-    // 2. Soft-cancel: store cancellation reason
-    const reason = req.body.cancellation_details || 'Cancelled by customer';
-    await ReservationModel.cancel(reserveId, reason, connection);
+    // 2. Check it's not already cancelled
+    if (reservation.cancellation_details) {
+      throw new ApiError(400, 'This reservation is already cancelled');
+    }
 
-    // 3. Restore vehicle availability
+    // 3. Calculate refund based on policy
+    const refundPercentage = calculateRefundPercentage(reservation.pickup_date);
+    const estimatedTotal = Number(reservation.estimated_total) || 0;
+    const calculatedRefund = Math.round((estimatedTotal * refundPercentage) / 100);
+
+    // 4. Check if a rent (payment) record exists for this reservation
+    let damageCompensation = 0;
+    let finalRefund = calculatedRefund;
+    const rentRecord = await RentModel.findByReserveId(reserveId, connection);
+
+    if (rentRecord) {
+      // Read any damage compensation from the rent record
+      damageCompensation = Number(rentRecord.damage_compensation) || 0;
+
+      // Deduct damage compensation from refund
+      finalRefund = Math.max(0, calculatedRefund - damageCompensation);
+
+      // Update the refund field on the rent record
+      await RentModel.updateRefund(rentRecord.rent_id, finalRefund, connection);
+    }
+
+    // 5. Build the cancellation details string
+    const fullDetails = `${cancellation_reason}: ${cancellation_details}`;
+
+    // 6. Soft-cancel: store reason, details, and refund info
+    await ReservationModel.cancel(reserveId, {
+      cancellation_details: fullDetails,
+      cancellation_reason,
+      refund_amount: finalRefund,
+      refund_percentage: refundPercentage,
+    }, connection);
+
+    // 7. Restore vehicle availability
     await VehicleModel.setAvailability(reservation.vehicle_id, true, connection);
 
     await connection.commit();
 
     res.status(200).json({
       success: true,
-      message: 'Reservation cancelled — vehicle is now available',
+      message: 'Reservation cancelled',
+      refund_percentage: refundPercentage,
+      calculated_refund: calculatedRefund,
+      damage_compensation: damageCompensation,
+      final_refund: finalRefund,
+      cancellation_reason,
+      cancellation_details: fullDetails,
+      estimated_total: estimatedTotal,
     });
   } catch (err) {
     await connection.rollback();

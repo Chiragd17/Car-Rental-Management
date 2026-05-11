@@ -66,9 +66,14 @@ export const getMyReservations = () =>
 export const getReservation = (id) =>
   api.get(`/reservations/${id}`).then((r) => r.data)
 
-// DELETE /api/reservations/:id  — body: { cancellation_details }
-export const cancelReservation = (id, reason = 'Cancelled by customer') =>
-  api.delete(`/reservations/${id}`, { data: { cancellation_details: reason } }).then((r) => r.data)
+// DELETE /api/reservations/:id  — Cancel with reason + refund calculation
+// body: { cancellation_reason, cancellation_details }
+// returns: { success, refund_percentage, calculated_refund, damage_compensation,
+//            final_refund, cancellation_reason, cancellation_details, estimated_total }
+export const cancelReservation = (id, { cancellation_reason, cancellation_details }) =>
+  api.delete(`/reservations/${id}`, {
+    data: { cancellation_reason, cancellation_details },
+  }).then((r) => r.data)
 
 // ── Rents (Payments) ─────────────────────────────────────────
 // POST /api/rents

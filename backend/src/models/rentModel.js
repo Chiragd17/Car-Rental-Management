@@ -52,6 +52,26 @@ export const findById = async (rentId) => {
   return rows[0];
 };
 
+// ── Find rent record by reservation ID ──────────────────────
+export const findByReserveId = async (reserveId, connection) => {
+  const conn = connection || db;
+  const [rows] = await conn.execute(
+    `SELECT * FROM rent WHERE reserve_id = ?`,
+    [reserveId]
+  );
+  return rows[0];
+};
+
+// ── Update the refund amount on a rent record ───────────────
+export const updateRefund = async (rentId, refundAmount, connection) => {
+  const conn = connection || db;
+  const [result] = await conn.execute(
+    `UPDATE rent SET refund = ? WHERE rent_id = ?`,
+    [refundAmount, rentId]
+  );
+  return result;
+};
+
 // ── All rent records for a customer ─────────────────────────
 export const findByCustomerId = async (custId) => {
   const [rows] = await db.execute(
