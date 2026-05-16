@@ -5,13 +5,23 @@
 import db from '../config/db.js';
 
 // ── List all vehicles (optionally filter by availability) ───
-export const findAll = async (availableOnly) => {
+export const findAll = async (availableOnly, location) => {
   let sql = 'SELECT * FROM vehicle';
   const params = [];
+  const conditions = [];
 
   if (availableOnly !== undefined) {
-    sql += ' WHERE availability = ?';
+    conditions.push('availability = ?');
     params.push(availableOnly ? 1 : 0);
+  }
+
+  if (location) {
+    conditions.push('location LIKE ?');
+    params.push(`%${location}%`);
+  }
+
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ');
   }
 
   sql += ' ORDER BY vehicle_id DESC';
@@ -42,12 +52,13 @@ export const create = async (data) => {
     managed_by,
     vehicle_type,
     image_url,
+    location,
   } = data;
 
   const [result] = await db.execute(
     `INSERT INTO vehicle
-       (plate_no, model, mileage, daily_price, \`condition\`, availability, registered_by, managed_by, vehicle_type, image_url)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (plate_no, model, mileage, daily_price, \`condition\`, availability, registered_by, managed_by, vehicle_type, image_url, location)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       plate_no,
       model,
@@ -59,6 +70,7 @@ export const create = async (data) => {
       managed_by    ?? null,
       vehicle_type  ?? null,
       image_url     ?? null,
+      location      ?? 'Mumbai',
     ]
   );
   return result;
@@ -77,6 +89,7 @@ export const update = async (vehicleId, data) => {
     managed_by,
     vehicle_type,
     image_url,
+    location,
   } = data;
 
   const [result] = await db.execute(
@@ -90,7 +103,8 @@ export const update = async (vehicleId, data) => {
          registered_by = COALESCE(?, registered_by),
          managed_by    = COALESCE(?, managed_by),
          vehicle_type  = COALESCE(?, vehicle_type),
-         image_url     = COALESCE(?, image_url)
+         image_url     = COALESCE(?, image_url),
+         location      = COALESCE(?, location)
      WHERE vehicle_id = ?`,
     [
       plate_no      ?? null,
@@ -103,6 +117,7 @@ export const update = async (vehicleId, data) => {
       managed_by    ?? null,
       vehicle_type  ?? null,
       image_url     ?? null,
+      location      ?? null,
       vehicleId,
     ]
   );

@@ -72,6 +72,18 @@ export const updateRefund = async (rentId, refundAmount, connection) => {
   return result;
 };
 
+// ── Update damage compensation and total pay on a rent record
+export const updateDamage = async (reserveId, damageAmount, damageDescription, totalPay, connection) => {
+  const conn = connection || db;
+  const [result] = await conn.execute(
+    `UPDATE rent 
+     SET damage_compensation = ?, damage_description = ?, total_pay = ? 
+     WHERE reserve_id = ?`,
+    [damageAmount, damageDescription, totalPay, reserveId]
+  );
+  return result;
+};
+
 // ── All rent records for a customer ─────────────────────────
 export const findByCustomerId = async (custId) => {
   const [rows] = await db.execute(

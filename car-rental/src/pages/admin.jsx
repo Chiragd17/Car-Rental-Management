@@ -9,6 +9,7 @@ import {
   deleteVehicle,
   getAllEmployees,
   createEmployee,
+  addDamageCompensation
 } from '../services/adminApi'
 import { formatCurrency, formatDate } from '../utils/helpers'
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -17,12 +18,13 @@ const TABS = ['Dashboard', 'Vehicles', 'Employees']
 const CONDITIONS = ['Excellent', 'Good', 'Fair', 'Poor']
 const VEHICLE_TYPES = ['SUV', 'Sedan', 'MUV', 'EV']
 const RESPONSIBILITIES = ['Fleet Manager', 'Customer Support', 'Driver', 'Mechanic', 'Admin']
+const CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata', 'Ahmedabad', 'Jaipur', 'Goa']
 
 const EMPTY_VEHICLE = {
   plate_no: '', model: '', mileage: 0,
   daily_price: '', condition: 'Good',
   availability: true, vehicle_type: 'Sedan',
-  registered_by: '', managed_by: '', image_url: '',
+  registered_by: '', managed_by: '', image_url: '', location: 'Mumbai'
 }
 
 const EMPTY_EMPLOYEE = {
@@ -84,11 +86,16 @@ export default function Admin() {
   const [error, setError] = useState('')
 
   const [showVehicleModal, setShowVehicleModal] = useState(false)
+  const [editingVehicleId, setEditingVehicleId] = useState(null)
   const [showEmployeeModal, setShowEmployeeModal] = useState(false)
   const [vehicleForm, setVehicleForm] = useState(EMPTY_VEHICLE)
   const [employeeForm, setEmployeeForm] = useState(EMPTY_EMPLOYEE)
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState('')
+
+  const [showDamageModal, setShowDamageModal] = useState(false)
+  const [damageForm, setDamageForm] = useState({ amount: '', description: '', reserve_id: null })
+  const [damageLoading, setDamageLoading] = useState(false)
 
   // Access control — is_admin from MySQL
   useEffect(() => {
@@ -123,15 +130,22 @@ export default function Admin() {
     fetchData()
   }, [activeTab])
 
-  const handleAddVehicle = async (e) => {
+  const handleSaveVehicle = async (e) => {
     e.preventDefault(); setFormError(''); setFormLoading(true)
     try {
       const payload = { ...vehicleForm }
       payload.registered_by = payload.registered_by || null
       payload.managed_by = payload.managed_by || null
-      await createVehicle(payload)
+      
+      if (editingVehicleId) {
+        await updateVehicle(editingVehicleId, payload)
+      } else {
+        await createVehicle(payload)
+      }
+      
       setShowVehicleModal(false)
       setVehicleForm(EMPTY_VEHICLE)
+      setEditingVehicleId(null)
       const res = await getAllVehicles()
       setVehicles(res.data || [])
     } catch (err) { setFormError(err.message) }
@@ -146,15 +160,7 @@ export default function Admin() {
     } catch (err) { alert(err.message) }
   }
 
-  const handleEditImage = async (v) => {
-    const newUrl = window.prompt(`Enter new image URL for ${v.model}:`, v.image_url || '')
-    if (newUrl === null || newUrl === v.image_url) return // cancelled or unchanged
-    
-    try {
-      await updateVehicle(v.vehicle_id, { image_url: newUrl })
-      setVehicles((p) => p.map((car) => car.vehicle_id === v.vehicle_id ? { ...car, image_url: newUrl } : car))
-    } catch (err) { alert(err.message) }
-  }
+
 
   const handleAddEmployee = async (e) => {
     e.preventDefault(); setFormError(''); setFormLoading(true)
@@ -170,6 +176,22 @@ export default function Admin() {
 
   const setV = (k) => (e) => setVehicleForm((p) => ({ ...p, [k]: e.target.value }))
   const setE = (k) => (e) => setEmployeeForm((p) => ({ ...p, [k]: e.target.value }))
+
+  const handleAddDamage = async (e) => {
+    e.preventDefault(); setFormError(''); setDamageLoading(true)
+    try {
+      await addDamageCompensation(damageForm.reserve_id, {
+        damage_amount: Number(damageForm.amount),
+        damage_description: damageForm.description
+      })
+      setShowDamageModal(false)
+      setDamageForm({ amount: '', description: '', reserve_id: null })
+      
+      const res = await getDashboardStats()
+      setStats(res.data)
+    } catch (err) { setFormError(err.message) }
+    finally { setDamageLoading(false) }
+  }
 
   const inputCls = `w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-forest
     focus:outline-none focus:ring-2 focus:ring-orange/30 focus:border-orange transition-all`
@@ -320,6 +342,7 @@ export default function Admin() {
                             <th className="px-6 py-4">Dates</th>
                             <th className="px-6 py-4">Amount</th>
                             <th className="px-6 py-4">Status</th>
+                            <th className="px-6 py-4">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -351,11 +374,39 @@ export default function Admin() {
                                 <td className="px-6 py-4">
                                   <div className="font-bold text-forest">{formatCurrency(booking.total_pay || booking.estimated_total)}</div>
                                   <div className="text-xs text-gray-400">{booking.total_pay ? 'Paid' : 'Est. Total'}</div>
+                                  
+                                  {(Number(booking.damage_compensation) > 0 || Number(booking.refund_amount) > 0) && (
+                                    <div className="mt-2 space-y-1 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                      {Number(booking.damage_compensation) > 0 && (
+                                        <>
+                                          <div className="text-xs font-semibold text-red-600">Damage Compensation: {formatCurrency(booking.damage_compensation)}</div>
+                                          {booking.damage_description && <div className="text-[10px] text-gray-500 italic">Notes: {booking.damage_description}</div>}
+                                        </>
+                                      )}
+                                      {Number(booking.refund_amount) > 0 && (
+                                        <div className="text-xs font-semibold text-green-600">Refund: {formatCurrency(booking.refund_amount)}</div>
+                                      )}
+                                    </div>
+                                  )}
                                 </td>
-                                <td className="px-6 py-4">
-                                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${status.color}`}>
+                                <td className="px-6 py-4 align-top">
+                                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${status.color} inline-block`}>
                                     {status.label}
                                   </span>
+                                </td>
+                                <td className="px-6 py-4 align-top">
+                                  {status.label === 'Completed' && (
+                                    <button 
+                                      onClick={() => {
+                                        setDamageForm({ amount: '', description: '', reserve_id: booking.reserve_id })
+                                        setFormError('')
+                                        setShowDamageModal(true)
+                                      }}
+                                      className="text-xs font-semibold bg-red-50 text-red-600 px-3 py-1.5 rounded-lg border border-red-100 hover:bg-red-100 transition-colors"
+                                    >
+                                      Add Damage
+                                    </button>
+                                  )}
                                 </td>
                               </tr>
                             );
@@ -383,7 +434,7 @@ export default function Admin() {
                 Fleet Management
                 {!loading && <span className="text-base font-normal text-gray-400 ml-2">({vehicles.length} vehicles)</span>}
               </h2>
-              <button onClick={() => { setVehicleForm(EMPTY_VEHICLE); setFormError(''); setShowVehicleModal(true) }}
+              <button onClick={() => { setVehicleForm(EMPTY_VEHICLE); setEditingVehicleId(null); setFormError(''); setShowVehicleModal(true) }}
                 className="bg-orange text-white font-semibold px-5 py-2.5 rounded-xl text-sm hover:bg-orange/90 transition-colors">
                 + Add Vehicle
               </button>
@@ -400,7 +451,7 @@ export default function Admin() {
                 <table className="w-full text-sm">
                   <thead className="bg-cream border-b border-gray-100">
                     <tr>
-                      {['ID', 'Model', 'Plate No', 'Type', 'Condition', 'Daily Price', 'Mileage', 'Status', 'Actions'].map((h) => (
+                      {['ID', 'Model', 'Location', 'Plate No', 'Type', 'Condition', 'Daily Price', 'Mileage', 'Status', 'Actions'].map((h) => (
                         <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -410,6 +461,7 @@ export default function Admin() {
                       <tr key={v.vehicle_id} className="hover:bg-cream/50 transition-colors">
                         <td className="px-4 py-3 font-mono text-gray-400 text-xs">#{v.vehicle_id}</td>
                         <td className="px-4 py-3 font-semibold text-forest whitespace-nowrap">{v.model}</td>
+                        <td className="px-4 py-3 text-gray-600 max-w-[250px] truncate" title={v.location || ''}>{v.location || '—'}</td>
                         <td className="px-4 py-3 font-mono text-xs text-gray-500">{v.plate_no}</td>
                         <td className="px-4 py-3"><span className="chip">{v.vehicle_type || '—'}</span></td>
                         <td className="px-4 py-3">
@@ -426,9 +478,19 @@ export default function Admin() {
                           </span>
                         </td>
                         <td className="px-4 py-3 flex gap-2">
-                          <button onClick={() => handleEditImage(v)}
+                          <button onClick={() => { 
+                            setVehicleForm({
+                              plate_no: v.plate_no, model: v.model, mileage: v.mileage,
+                              daily_price: v.daily_price, condition: v.condition,
+                              availability: !!v.availability, vehicle_type: v.vehicle_type,
+                              registered_by: v.registered_by || '', managed_by: v.managed_by || '', image_url: v.image_url || '', location: v.location || 'Mumbai'
+                            }); 
+                            setEditingVehicleId(v.vehicle_id); 
+                            setFormError(''); 
+                            setShowVehicleModal(true); 
+                          }}
                             className="text-xs text-orange hover:text-orange/80 font-medium px-3 py-1 rounded-lg border border-orange/30 hover:bg-orange/10 transition-colors">
-                            Edit Image
+                            Edit
                           </button>
                           <button onClick={() => handleDeleteVehicle(v.vehicle_id)}
                             className="text-xs text-red-500 hover:text-red-700 font-medium px-3 py-1 rounded-lg border border-red-100 hover:bg-red-50 transition-colors">
@@ -501,10 +563,10 @@ export default function Admin() {
         )}
       </div>
 
-      {/* ADD VEHICLE MODAL */}
+      {/* ADD / EDIT VEHICLE MODAL */}
       {showVehicleModal && (
-        <Modal title="Add New Vehicle" onClose={() => setShowVehicleModal(false)}>
-          <form onSubmit={handleAddVehicle} className="space-y-4">
+        <Modal title={editingVehicleId ? "Edit Vehicle" : "Add New Vehicle"} onClose={() => setShowVehicleModal(false)}>
+          <form onSubmit={handleSaveVehicle} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Model *</label>
@@ -537,9 +599,26 @@ export default function Admin() {
                 </select>
               </div>
               <div>
+                <label className={labelCls}>Location *</label>
+                <input className={inputCls} placeholder="e.g. Mumbai, Jammu..." value={vehicleForm.location} onChange={setV('location')} list="city-list" required />
+                <datalist id="city-list">
+                  {CITIES.map((c) => <option key={c} value={c} />)}
+                </datalist>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <label className={labelCls}>Condition</label>
                 <select className={inputCls} value={vehicleForm.condition} onChange={setV('condition')}>
                   {CONDITIONS.map((c) => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Availability</label>
+                <select className={inputCls} value={vehicleForm.availability}
+                  onChange={(e) => setVehicleForm((p) => ({ ...p, availability: e.target.value === 'true' }))}>
+                  <option value="true">Available</option>
+                  <option value="false">Unavailable</option>
                 </select>
               </div>
             </div>
@@ -567,14 +646,7 @@ export default function Admin() {
                 </select>
               </div>
             </div>
-            <div>
-              <label className={labelCls}>Availability</label>
-              <select className={inputCls} value={vehicleForm.availability}
-                onChange={(e) => setVehicleForm((p) => ({ ...p, availability: e.target.value === 'true' }))}>
-                <option value="true">Available</option>
-                <option value="false">Unavailable</option>
-              </select>
-            </div>
+
             {formError && <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">{formError}</p>}
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setShowVehicleModal(false)}
@@ -583,7 +655,7 @@ export default function Admin() {
               </button>
               <button type="submit" disabled={formLoading}
                 className="flex-1 bg-orange text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-orange/90 disabled:opacity-60">
-                {formLoading ? 'Adding…' : 'Add Vehicle'}
+                {formLoading ? 'Saving…' : editingVehicleId ? 'Save Changes' : 'Add Vehicle'}
               </button>
             </div>
           </form>
@@ -656,6 +728,38 @@ export default function Admin() {
               <button type="submit" disabled={formLoading}
                 className="flex-1 bg-orange text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-orange/90 disabled:opacity-60">
                 {formLoading ? 'Adding…' : 'Add Employee'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ADD DAMAGE MODAL */}
+      {showDamageModal && (
+        <Modal title="Add Damage Compensation" onClose={() => setShowDamageModal(false)}>
+          <form onSubmit={handleAddDamage} className="space-y-4">
+            <div className="bg-red-50 text-red-600 text-sm p-4 rounded-xl mb-4 border border-red-100">
+              <span className="font-bold">Warning:</span> Recording damage will recalculate the final rental payment for reservation #{damageForm.reserve_id}.
+            </div>
+            <div>
+              <label className={labelCls}>Damage Amount (₹) *</label>
+              <input type="number" min="0" step="0.01" className={inputCls} placeholder="e.g. 5000" 
+                value={damageForm.amount} onChange={(e) => setDamageForm(p => ({ ...p, amount: e.target.value }))} required />
+            </div>
+            <div>
+              <label className={labelCls}>Damage Description / Notes</label>
+              <textarea className={`${inputCls} resize-none h-24`} placeholder="e.g. Front bumper scratch, interior cleaning charge..." 
+                value={damageForm.description} onChange={(e) => setDamageForm(p => ({ ...p, description: e.target.value }))} />
+            </div>
+            {formError && <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">{formError}</p>}
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setShowDamageModal(false)}
+                className="flex-1 border border-gray-200 text-forest font-semibold py-2.5 rounded-xl text-sm">
+                Cancel
+              </button>
+              <button type="submit" disabled={damageLoading}
+                className="flex-1 bg-orange text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-orange/90 disabled:opacity-60">
+                {damageLoading ? 'Applying…' : 'Apply Compensation'}
               </button>
             </div>
           </form>

@@ -30,3 +30,8 @@ export const getAllEmployees = () =>
 // POST /api/employees
 export const createEmployee = (body) =>
   api.post('/employees', body).then((r) => r.data)
+
+// ── Rents / Damage Compensation ───────────────────────────────
+// PUT /api/rents/by-reservation/:reserve_id/damage
+export const addDamageCompensation = (reserveId, payload) =>
+  api.put(`/rents/by-reservation/${reserveId}/damage`, payload).then((r) => r.data)

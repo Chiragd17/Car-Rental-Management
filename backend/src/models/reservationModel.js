@@ -18,6 +18,20 @@ export const create = async (data, connection) => {
   return result;
 };
 
+// ── Check Date Overlap ──────────────────────────────────────
+export const checkOverlap = async (vehicleId, pickupDate, returnDate) => {
+  const [rows] = await db.execute(
+    `SELECT COUNT(*) AS count 
+     FROM reservation 
+     WHERE vehicle_id = ? 
+       AND pickup_date <= ? 
+       AND return_date >= ? 
+       AND cancellation_details IS NULL`,
+    [vehicleId, returnDate, pickupDate]
+  );
+  return rows[0].count > 0;
+};
+
 // ── Find by PK ──────────────────────────────────────────────
 export const findById = async (reserveId) => {
   const [rows] = await db.execute(
@@ -35,9 +49,11 @@ export const findById = async (reserveId) => {
 export const findByCustomerId = async (custId) => {
   const [rows] = await db.execute(
     `SELECT r.*, v.model, v.plate_no, v.daily_price,
-            (r.number_of_days * v.daily_price) AS estimated_total
+            (r.number_of_days * v.daily_price) AS estimated_total,
+            rn.total_pay, rn.damage_compensation, rn.damage_description
      FROM reservation r
      JOIN vehicle v ON r.vehicle_id = v.vehicle_id
+     LEFT JOIN rent rn ON r.reserve_id = rn.reserve_id
      WHERE r.cust_id = ?
      ORDER BY r.reserve_date DESC, r.reserve_id DESC`,
     [custId]
@@ -127,7 +143,7 @@ export const getRecent = async (limit = 10) => {
             c.first_name, c.last_name, c.email,
             v.model, v.vehicle_type, v.daily_price,
             (r.number_of_days * v.daily_price) AS estimated_total,
-            rn.total_pay
+            rn.total_pay, rn.damage_compensation, rn.damage_description
      FROM reservation r
      JOIN customer c ON r.cust_id = c.cust_id
      JOIN vehicle v ON r.vehicle_id = v.vehicle_id

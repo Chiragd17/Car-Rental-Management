@@ -34,22 +34,30 @@ export const upsert = async ({
   firstName,
   lastName,
   email,
-  contactNo = null
+  contactNo = null,
+  drivingLicense = null,
+  houseNo = null,
+  city = null,
+  country = null
 }) => {
   const [result] = await db.execute(
     `INSERT INTO customer
-     (supabase_uid, first_name, last_name, email, contact_no)
-     VALUES (?, ?, ?, ?, ?)
+     (supabase_uid, first_name, last_name, email, contact_no, driving_license, house_no, city, country)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
-       first_name = VALUES(first_name),
-       last_name  = VALUES(last_name),
+       first_name = COALESCE(VALUES(first_name), first_name),
+       last_name  = COALESCE(VALUES(last_name), last_name),
        email      = VALUES(email)`,
     [
       supabaseUid,
       firstName,
       lastName,
       email,
-      contactNo
+      contactNo,
+      drivingLicense,
+      houseNo,
+      city,
+      country
     ]
   );
 

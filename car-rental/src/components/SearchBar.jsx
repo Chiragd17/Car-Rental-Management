@@ -57,10 +57,18 @@ export default function SearchBar({ initialValues = {}, compact = false }) {
     returnDate: initialValues.returnDate || '',
     available:  initialValues.available  || 'true',
   })
-  const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
+  const [error, setError] = useState('')
+  const set = (k) => (e) => {
+    setError('')
+    setForm((p) => ({ ...p, [k]: e.target.value }))
+  }
 
   const handleSearch = (e) => {
     e.preventDefault()
+    if (!form.location.trim()) {
+      setError('Location is required.')
+      return
+    }
     const params = new URLSearchParams({
       location:   form.location,
       pickup:     form.pickup,
@@ -75,9 +83,10 @@ export default function SearchBar({ initialValues = {}, compact = false }) {
   const labelCls = 'block text-xs font-semibold text-forest/60 uppercase tracking-wider mb-1.5'
 
   if (compact) return (
-    <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div><label className={labelCls}>Location</label><LocationInput className={inputCls} placeholder="City or Airport" value={form.location} onChange={(v) => setForm(p => ({...p, location: v}))} /></div>
+    <div className="relative">
+      <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div><label className={labelCls}>Location</label><LocationInput className={inputCls} placeholder="City or Airport" value={form.location} onChange={(v) => { setError(''); setForm(p => ({...p, location: v})) }} /></div>
         <div><label className={labelCls}>Pickup</label><input type="date" className={inputCls} min={today()} value={form.pickup} onChange={set('pickup')} /></div>
         <div><label className={labelCls}>Return</label><input type="date" className={inputCls} min={form.pickup || today()} value={form.returnDate} onChange={set('returnDate')} /></div>
         <div>
@@ -89,7 +98,9 @@ export default function SearchBar({ initialValues = {}, compact = false }) {
         </div>
       </div>
       <button type="submit" className="mt-3 w-full bg-orange text-white font-semibold text-sm py-3 rounded-xl hover:bg-orange/90 transition-colors">Update Search</button>
-    </form>
+      </form>
+      {error && <div className="absolute top-full left-0 mt-2 w-full text-center text-red-500 text-sm bg-red-50 px-3 py-2 rounded-xl border border-red-100 shadow-sm z-40">{error}</div>}
+    </div>
   )
 
   return (
@@ -97,7 +108,7 @@ export default function SearchBar({ initialValues = {}, compact = false }) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <div>
           <label className={labelCls}>📍 Pickup Location</label>
-          <LocationInput className={inputCls} placeholder="City or Airport" value={form.location} onChange={(v) => setForm(p => ({...p, location: v}))} required />
+          <LocationInput className={inputCls} placeholder="City or Airport" value={form.location} onChange={(v) => { setError(''); setForm(p => ({...p, location: v})) }} required />
         </div>
         <div>
           <label className={labelCls}>📅 Pickup Date</label>
@@ -118,6 +129,7 @@ export default function SearchBar({ initialValues = {}, compact = false }) {
       <button type="submit" className="btn-primary mt-6 w-full bg-orange text-white font-semibold text-base py-3.5 rounded-xl hover:bg-orange/90 tracking-wide">
         Search Available Cars
       </button>
+      {error && <div className="mt-4 text-center text-red-500 text-sm bg-red-50 py-2.5 rounded-xl border border-red-100">{error}</div>}
     </form>
   )
 }

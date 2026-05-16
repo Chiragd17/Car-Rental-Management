@@ -27,15 +27,24 @@ export const syncUser = asyncHandler(async (req, res) => {
   // otherwise we fall back to a sensible default derived from the email.
   const firstName = req.body.first_name || email.split('@')[0] || 'User';
   const lastName  = req.body.last_name  || '';
+  const contactNo = req.body.contact_no || null;
+  const drivingLicense = req.body.driving_license || null;
+  const houseNo = req.body.house_no || null;
+  const city = req.body.city || null;
+  const country = req.body.country || null;
 
   // Upsert: INSERT … ON DUPLICATE KEY UPDATE
   await CustomerModel.upsert({
-  supabaseUid,
-  firstName,
-  lastName,
-  email,
-contactNo: null
-});
+    supabaseUid,
+    firstName,
+    lastName,
+    email,
+    contactNo,
+    drivingLicense,
+    houseNo,
+    city,
+    country
+  });
   // Fetch the (possibly just-created) full customer row to return
   const customer = await CustomerModel.findBySupabaseUid(supabaseUid);
 

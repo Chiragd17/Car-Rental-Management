@@ -70,7 +70,13 @@ export const create = asyncHandler(async (req, res) => {
     throw new ApiError(404, `Vehicle ${vehicle_id} not found`);
   }
   if (!vehicle.availability) {
-    throw new ApiError(409, `Vehicle ${vehicle_id} is already reserved`);
+    throw new ApiError(409, `Vehicle ${vehicle_id} is currently marked as unavailable`);
+  }
+
+  // ── Strict Date-Overlap Checking ──────────────────────────
+  const isOverlapping = await ReservationModel.checkOverlap(vehicle_id, pickup_date, return_date);
+  if (isOverlapping) {
+    throw new ApiError(409, 'This vehicle is already booked for the selected dates. Please choose different dates.');
   }
 
   // ── Begin transaction ─────────────────────────────────────

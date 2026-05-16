@@ -111,3 +111,67 @@ export const getOne = asyncHandler(async (req, res) => {
 
   res.status(200).json({ success: true, data: rent });
 });
+
+// ─────────────────────────────────────────────────────────────
+// PUT /rents/by-reservation/:reserve_id/damage — Add damage
+// ─────────────────────────────────────────────────────────────
+export const addDamageCompensation = asyncHandler(async (req, res) => {
+  const { reserve_id } = req.params;
+  const { damage_amount, damage_description } = req.body;
+
+  if (damage_amount === undefined || damage_amount < 0) {
+    throw new ApiError(400, 'Valid damage_amount is required and cannot be negative');
+  }
+
+  // Fetch the rent record
+  const rent = await RentModel.findByReserveId(reserve_id);
+  if (!rent) {
+    throw new ApiError(404, `No payment/rent record found for reservation ${reserve_id}`);
+  }
+
+  // Fetch reservation and vehicle to validate rules and recalculate
+  const reservation = await ReservationModel.findById(reserve_id);
+  if (!reservation) {
+    throw new ApiError(404, `Reservation ${reserve_id} not found`);
+  }
+
+  // VALIDATION: Cancelled bookings cannot have damage compensation added
+  if (reservation.cancellation_details) {
+    throw new ApiError(400, 'Cannot add damage compensation to a cancelled reservation');
+  }
+
+  // VALIDATION: Damage can only be added after the vehicle is returned
+  const today = new Date();
+  const returnDate = new Date(reservation.return_date);
+  if (returnDate > today) {
+    throw new ApiError(400, 'Cannot add damage compensation before the vehicle is returned (status must be Completed)');
+  }
+
+  const vehicle = await VehicleModel.findById(reservation.vehicle_id);
+  if (!vehicle) {
+    throw new ApiError(404, 'Associated vehicle not found');
+  }
+
+  // RECALCULATE PAYMENT SAFELY
+  const numberOfDays = reservation.number_of_days || 0;
+  const dailyPrice = Number(vehicle.daily_price);
+  const baseRent = numberOfDays * dailyPrice;
+
+  // Formula: base_rent + damage_compensation - refund
+  let totalPay = baseRent + Number(damage_amount) - Number(rent.refund);
+
+  // Clamp negative totals
+  totalPay = Math.max(totalPay, 0);
+
+  // Update DB
+  await RentModel.updateDamage(reserve_id, damage_amount, damage_description || null, totalPay);
+
+  res.status(200).json({
+    success: true,
+    reserve_id,
+    damage_compensation: damage_amount,
+    refund: rent.refund,
+    total_pay: totalPay,
+    damage_description: damage_description || null
+  });
+});

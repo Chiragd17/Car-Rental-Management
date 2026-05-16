@@ -43,12 +43,14 @@ CREATE TABLE IF NOT EXISTS customer (
   supabase_uid    VARCHAR(255)  NOT NULL UNIQUE,
   first_name      VARCHAR(50)   NOT NULL,
   last_name       VARCHAR(50)   NOT NULL,
+  email           VARCHAR(255)  UNIQUE,
   contact_no      VARCHAR(20),
   driving_license VARCHAR(50)   UNIQUE,
   house_no        VARCHAR(20),
   city            VARCHAR(50),
   country         VARCHAR(50),
   created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+  is_admin        BOOLEAN       DEFAULT FALSE,
 
   INDEX idx_supabase_uid (supabase_uid)
 ) ENGINE=InnoDB;
@@ -68,6 +70,9 @@ CREATE TABLE IF NOT EXISTS vehicle (
   registered_by   INT             NULL,
   -- Which employee currently manages this vehicle
   managed_by      INT             NULL,
+  vehicle_type    VARCHAR(50)     DEFAULT 'Sedan',
+  image_url       VARCHAR(255)    NULL,
+  location        VARCHAR(100)    DEFAULT 'Mumbai',
 
   INDEX idx_availability (availability),
 
@@ -124,6 +129,7 @@ CREATE TABLE IF NOT EXISTS rent (
   down_payment        DECIMAL(10,2)   NOT NULL DEFAULT 0.00,
   refund              DECIMAL(10,2)   NOT NULL DEFAULT 0.00,
   damage_compensation DECIMAL(10,2)   NOT NULL DEFAULT 0.00,
+  damage_description  TEXT            NULL,
   -- total_pay is calculated in application code (NOT stored)
   -- Formula: (number_of_days × daily_price) + damage_compensation - refund
   total_pay           DECIMAL(10,2)   NOT NULL DEFAULT 0.00,

@@ -6,12 +6,22 @@ export default function AuthModal() {
   const [tab,      setTab]      = useState('login')
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [contactNo, setContactNo] = useState('')
+  const [drivingLicense, setDrivingLicense] = useState('')
+  const [city, setCity] = useState('')
+  const [country, setCountry] = useState('')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
   const [success,  setSuccess]  = useState('')
 
   useEffect(() => {
-    if (showModal) { setError(''); setSuccess(''); setEmail(''); setPassword(''); setTab('login') }
+    if (showModal) { 
+      setError(''); setSuccess(''); setEmail(''); setPassword(''); 
+      setFirstName(''); setLastName(''); setContactNo(''); setDrivingLicense('');
+      setCity(''); setCountry(''); setTab('login') 
+    }
   }, [showModal])
 
   if (!showModal) return null
@@ -30,7 +40,20 @@ export default function AuthModal() {
   const handleRegister = async (e) => {
     e.preventDefault(); setError(''); setLoading(true)
     try {
-      const { error } = await supabase.auth.signUp({ email, password })
+      const { error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            contact_no: contactNo,
+            driving_license: drivingLicense,
+            city,
+            country
+          }
+        }
+      })
       if (error) throw error
       setSuccess('Account created! Check your email to verify, then sign in.')
       setTab('login')
@@ -47,7 +70,7 @@ export default function AuthModal() {
     <div className="modal-backdrop fixed inset-0 z-[100] flex items-center justify-center p-4"
       style={{ background: 'rgba(21,43,33,0.65)', backdropFilter: 'blur(6px)' }}
       onClick={handleBackdrop}>
-      <div className="modal-box relative w-full max-w-md rounded-3xl overflow-hidden"
+      <div className="modal-box relative w-full max-w-md rounded-3xl overflow-y-auto max-h-[90vh]"
         style={{ background: 'rgba(21,43,33,0.80)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 32px 64px rgba(0,0,0,0.4)' }}>
         <button onClick={() => setShowModal(false)}
           className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-white/60 hover:text-white hover:bg-white/20 transition-all text-xl">×</button>
@@ -86,6 +109,20 @@ export default function AuthModal() {
           </div>
 
           <form onSubmit={tab === 'login' ? handleLogin : handleRegister} className="space-y-3">
+            {tab === 'register' && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" className={inputCls} placeholder="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+                  <input type="text" className={inputCls} placeholder="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+                </div>
+                <input type="text" className={inputCls} placeholder="Contact Number" value={contactNo} onChange={(e) => setContactNo(e.target.value)} required />
+                <input type="text" className={inputCls} placeholder="Driving License" value={drivingLicense} onChange={(e) => setDrivingLicense(e.target.value)} required />
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" className={inputCls} placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} required />
+                  <input type="text" className={inputCls} placeholder="Country" value={country} onChange={(e) => setCountry(e.target.value)} required />
+                </div>
+              </>
+            )}
             <input type="email" className={inputCls} placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <input type="password" className={inputCls} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
 

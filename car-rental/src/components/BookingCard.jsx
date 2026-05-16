@@ -17,6 +17,7 @@ export default function BookingCard({ reservation, onCancelled }) {
     pickup_location, cancellation_details, cancellation_reason,
     refund_amount, refund_percentage,
     model, plate_no, daily_price, estimated_total,
+    total_pay, damage_compensation, damage_description,
   } = reservation
 
   const status = reservationStatus(reservation)
@@ -142,12 +143,24 @@ export default function BookingCard({ reservation, onCancelled }) {
           </div>
 
           <div className="flex flex-col items-end gap-3">
-            {estimated_total && (
-              <div className="text-right">
-                <p className="text-xs text-gray-400">Estimated Total</p>
-                <p className="text-xl font-display font-bold text-forest">{formatCurrency(estimated_total)}</p>
-              </div>
-            )}
+            <div className="text-right">
+              <p className="text-xs text-gray-400">{total_pay ? 'Total Paid' : 'Estimated Total'}</p>
+              <p className="text-xl font-display font-bold text-forest">{formatCurrency(total_pay || estimated_total)}</p>
+              {Number(damage_compensation) > 0 && (
+                <div className="mt-2 flex flex-col items-end">
+                  <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-center">
+                    <p className="text-xs font-semibold text-red-600 tracking-wide">
+                      + Damage: {formatCurrency(damage_compensation)}
+                    </p>
+                    {damage_description && (
+                      <p className="text-[10px] text-red-500/80 mt-1 max-w-[200px] leading-snug">
+                        "{damage_description}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             {isCancellable && (
               <button onClick={() => setShowCancelModal(true)}
                 className="text-sm font-medium text-red-600 px-4 py-2 rounded-xl border border-red-100 hover:bg-red-50 transition-colors">

@@ -25,8 +25,12 @@ export function AuthProvider({ children }) {
 
     try {
       await syncUser({
-        first_name: session.user.user_metadata?.full_name?.split(' ')[0] || '',
-        last_name:  session.user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+        first_name: session.user.user_metadata?.first_name || session.user.user_metadata?.full_name?.split(' ')[0] || '',
+        last_name:  session.user.user_metadata?.last_name || session.user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+        contact_no: session.user.user_metadata?.contact_no || '',
+        driving_license: session.user.user_metadata?.driving_license || '',
+        city: session.user.user_metadata?.city || '',
+        country: session.user.user_metadata?.country || '',
       })
     } catch (e) {
       console.warn('sync-user:', e.message)

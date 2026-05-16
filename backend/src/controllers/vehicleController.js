@@ -19,8 +19,9 @@ export const getAll = asyncHandler(async (req, res) => {
   if (req.query.available !== undefined) {
     availableOnly = req.query.available === 'true';
   }
+  const location = req.query.location || null;
 
-  const vehicles = await VehicleModel.findAll(availableOnly);
+  const vehicles = await VehicleModel.findAll(availableOnly, location);
 
   res.status(200).json({ success: true, count: vehicles.length, data: vehicles });
 });
@@ -42,11 +43,11 @@ export const getOne = asyncHandler(async (req, res) => {
 // POST /vehicles — Create a new vehicle (PROTECTED)
 // ─────────────────────────────────────────────────────────────
 export const create = asyncHandler(async (req, res) => {
-  const { plate_no, model, daily_price } = req.body;
+  const { plate_no, model, daily_price, location } = req.body;
 
   // Validate required fields
-  if (!plate_no || !model || daily_price === undefined) {
-    throw new ApiError(400, 'plate_no, model, and daily_price are required');
+  if (!plate_no || !model || daily_price === undefined || !location) {
+    throw new ApiError(400, 'plate_no, model, daily_price, and location are required');
   }
 
   const result = await VehicleModel.create(req.body);

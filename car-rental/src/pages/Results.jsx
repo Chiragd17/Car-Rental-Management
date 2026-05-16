@@ -26,6 +26,7 @@ export default function Results() {
       try {
         const params = {}
         if (filters.available === 'true') params.available = 'true'
+        if (spObj.location) params.location = spObj.location.split(' - ')[0]
         const res = await getVehicles(params)
         setVehicles(res.data || res)
       } catch (err) {
@@ -35,7 +36,7 @@ export default function Results() {
       }
     }
     fetch()
-  }, [filters.available])
+  }, [filters.available, spObj.location])
 
   // Client-side filters
   const displayed = vehicles.filter((v) => {
@@ -64,7 +65,9 @@ export default function Results() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-display font-bold text-2xl text-forest">
-                {loading ? 'Loading vehicles…' : `${displayed.length} vehicle${displayed.length !== 1 ? 's' : ''} found`}
+                {loading ? 'Loading vehicles…' : (
+                  <><span className="font-sans font-bold">{displayed.length}</span> vehicle{displayed.length !== 1 ? 's' : ''} found</>
+                )}
               </h2>
               {spObj.location && (
                 <span className="text-sm text-gray-500">
@@ -98,10 +101,15 @@ export default function Results() {
             )}
 
             {!loading && !error && displayed.length === 0 && (
-              <div className="text-center py-20">
-                <div className="text-5xl mb-4">🚗</div>
-                <h3 className="font-display text-xl text-forest font-semibold">No vehicles found</h3>
-                <p className="text-gray-400 text-sm mt-2">Try adjusting your filters.</p>
+              <div className="text-center py-24 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
+                <div className="text-6xl mb-4">🏙️</div>
+                <h3 className="font-display text-2xl text-forest font-bold">No vehicles currently available</h3>
+                <p className="text-gray-400 mt-2 max-w-sm mx-auto mb-8">We couldn't find any vehicles in {spObj.location ? spObj.location.split(' - ')[0] : 'this area'} matching your criteria. Try adjusting your filters or changing the location.</p>
+                <button 
+                  onClick={() => window.location.href = '/results'}
+                  className="bg-orange text-white px-8 py-3 rounded-xl font-semibold hover:bg-orange/90 transition-colors shadow-sm">
+                  View All Available Vehicles
+                </button>
               </div>
             )}
 
