@@ -51,12 +51,13 @@ export const create = asyncHandler(async (req, res) => {
   }
 
   // ── Calculate total_pay (DERIVED — not stored in schema) ──
-  // Formula: (number_of_days × daily_price) + damage_compensation - refund
+  // Formula: base_rent + tax_amount + damage_compensation - refund
   const numberOfDays = reservation.number_of_days || 0;
   const dailyPrice   = Number(vehicle.daily_price);
-  const totalPay     = (numberOfDays * dailyPrice)
-                       + Number(damage_compensation)
-                       - Number(refund);
+  const baseRent     = numberOfDays * dailyPrice;
+  const taxAmount    = Number(reservation.tax_amount) || 0;
+  let totalPay       = baseRent + taxAmount + Number(damage_compensation) - Number(refund);
+  totalPay = Math.max(totalPay, 0);
 
   // ── Insert the rent record ────────────────────────────────
   const result = await RentModel.create({
@@ -156,9 +157,10 @@ export const addDamageCompensation = asyncHandler(async (req, res) => {
   const numberOfDays = reservation.number_of_days || 0;
   const dailyPrice = Number(vehicle.daily_price);
   const baseRent = numberOfDays * dailyPrice;
+  const taxAmount = Number(reservation.tax_amount) || 0;
 
-  // Formula: base_rent + damage_compensation - refund
-  let totalPay = baseRent + Number(damage_amount) - Number(rent.refund);
+  // Formula: base_rent + tax_amount + damage_compensation - refund
+  let totalPay = baseRent + taxAmount + Number(damage_amount) - Number(rent.refund);
 
   // Clamp negative totals
   totalPay = Math.max(totalPay, 0);

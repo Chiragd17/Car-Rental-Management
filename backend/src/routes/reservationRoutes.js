@@ -10,6 +10,7 @@ import {
   getOne,
   update,
   cancel,
+  markCompleted,
 } from '../controllers/reservationController.js';
 
 const router = Router();
@@ -31,5 +32,8 @@ router.put('/:id', update);
 
 // DELETE /reservations/:id   → cancel + restore vehicle availability
 router.delete('/:id', cancel);
+
+// PUT    /reservations/:id/complete → mark returned + restore vehicle availability
+router.put('/:id/complete', markCompleted);
 
 export default router;

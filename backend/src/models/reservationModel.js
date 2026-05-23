@@ -7,13 +7,13 @@ import db from '../config/db.js';
 // ── Create a reservation (inside a transaction) ─────────────
 // `connection` is a transactional connection from the pool
 export const create = async (data, connection) => {
-  const { reserve_date, pickup_date, return_date, pickup_location, cust_id, vehicle_id } = data;
+  const { reserve_date, pickup_date, return_date, pickup_location, cust_id, vehicle_id, tax_percentage, tax_amount } = data;
 
   const [result] = await connection.execute(
     `INSERT INTO reservation
-       (reserve_date, pickup_date, return_date, pickup_location, cust_id, vehicle_id)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [reserve_date, pickup_date, return_date, pickup_location, cust_id, vehicle_id]
+       (reserve_date, pickup_date, return_date, pickup_location, cust_id, vehicle_id, tax_percentage, tax_amount)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [reserve_date, pickup_date, return_date, pickup_location, cust_id, vehicle_id, tax_percentage || 0, tax_amount || 0]
   );
   return result;
 };
@@ -36,7 +36,8 @@ export const checkOverlap = async (vehicleId, pickupDate, returnDate) => {
 export const findById = async (reserveId) => {
   const [rows] = await db.execute(
     `SELECT r.*, v.daily_price,
-            (r.number_of_days * v.daily_price) AS estimated_total
+            (r.number_of_days * v.daily_price) AS base_rent,
+            (r.number_of_days * v.daily_price + r.tax_amount) AS estimated_total
      FROM reservation r
      JOIN vehicle v ON r.vehicle_id = v.vehicle_id
      WHERE r.reserve_id = ?`,
@@ -49,7 +50,8 @@ export const findById = async (reserveId) => {
 export const findByCustomerId = async (custId) => {
   const [rows] = await db.execute(
     `SELECT r.*, v.model, v.plate_no, v.daily_price,
-            (r.number_of_days * v.daily_price) AS estimated_total,
+            (r.number_of_days * v.daily_price) AS base_rent,
+            (r.number_of_days * v.daily_price + r.tax_amount) AS estimated_total,
             rn.total_pay, rn.damage_compensation, rn.damage_description
      FROM reservation r
      JOIN vehicle v ON r.vehicle_id = v.vehicle_id
@@ -69,9 +71,11 @@ export const update = async (reserveId, data) => {
     `UPDATE reservation
      SET pickup_date     = COALESCE(?, pickup_date),
          return_date     = COALESCE(?, return_date),
-         pickup_location = COALESCE(?, pickup_location)
+         pickup_location = COALESCE(?, pickup_location),
+         tax_percentage  = COALESCE(?, tax_percentage),
+         tax_amount      = COALESCE(?, tax_amount)
      WHERE reserve_id = ?`,
-    [pickup_date ?? null, return_date ?? null, pickup_location ?? null, reserveId]
+    [pickup_date ?? null, return_date ?? null, pickup_location ?? null, data.tax_percentage ?? null, data.tax_amount ?? null, reserveId]
   );
   return result;
 };
@@ -114,6 +118,18 @@ export const findByIdRaw = async (reserveId, connection) => {
   return rows[0];
 };
 
+// ── Mark Reservation as Completed ─────────────────────────────
+export const markCompleted = async (reserveId, connection) => {
+  const conn = connection || db;
+  const [result] = await conn.execute(
+    `UPDATE reservation
+     SET completed_at = NOW()
+     WHERE reserve_id = ?`,
+    [reserveId]
+  );
+  return result;
+};
+
 // ── Dashboard helpers ───────────────────────────────────────
 export const countAll = async () => {
   const [rows] = await db.execute('SELECT COUNT(*) AS total FROM reservation');
@@ -129,7 +145,7 @@ export const countCancelled = async () => {
 
 export const countActive = async () => {
   const [rows] = await db.execute(
-    'SELECT COUNT(*) AS total FROM reservation WHERE pickup_date <= NOW() AND return_date >= NOW() AND cancellation_details IS NULL'
+    'SELECT COUNT(*) AS total FROM reservation WHERE pickup_date <= NOW() AND completed_at IS NULL AND cancellation_details IS NULL'
   );
   return rows[0].total;
 };
@@ -139,10 +155,11 @@ export const getRecent = async (limit = 10) => {
   // but execute supports ? for LIMIT in mysql2. Let's use template literal just to be safe if `limit` is a number.
   const [rows] = await db.execute(
     `SELECT r.reserve_id, r.reserve_date, r.pickup_date, r.return_date, r.pickup_location, r.cancellation_details,
-            r.cancellation_reason, r.refund_amount, r.refund_percentage,
-            c.first_name, c.last_name, c.email,
+            r.cancellation_reason, r.refund_amount, r.refund_percentage, r.tax_percentage, r.tax_amount, r.completed_at,
+            r.cust_id, c.first_name, c.last_name, c.email,
             v.model, v.vehicle_type, v.daily_price,
-            (r.number_of_days * v.daily_price) AS estimated_total,
+            (r.number_of_days * v.daily_price) AS base_rent,
+            (r.number_of_days * v.daily_price + r.tax_amount) AS estimated_total,
             rn.total_pay, rn.damage_compensation, rn.damage_description
      FROM reservation r
      JOIN customer c ON r.cust_id = c.cust_id

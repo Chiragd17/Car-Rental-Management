@@ -204,19 +204,19 @@ export default function Payment() {
                   <p className="text-xs text-gray-400 font-mono">{vehicle?.plate_no}</p>
                 </div>
               </div>
-              <div className="py-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Reservation #</span>
-                  <span className="font-mono font-medium text-forest">{reserve_id}</span>
+              <div className="py-4 space-y-3 text-sm">
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-gray-400 shrink-0">Reservation #</span>
+                  <span className="font-mono font-medium text-forest text-right">{reserve_id}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Dates</span>
-                  <span className="font-medium text-forest">{state?.pickupDate} → {state?.returnDate}</span>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-gray-400 shrink-0">Dates</span>
+                  <span className="font-medium text-forest text-right whitespace-nowrap tracking-tight text-[13px]">{state?.pickupDate} to {state?.returnDate}</span>
                 </div>
               </div>
-              <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
-                <span className="font-semibold text-forest">Total</span>
-                <span className="font-display font-bold text-2xl text-forest">{formatCurrency(total)}</span>
+              <div className="border-t border-gray-100 pt-4 flex justify-between items-center gap-4">
+                <span className="font-semibold text-forest shrink-0">Total</span>
+                <span className="font-display font-bold text-2xl text-forest text-right tracking-wider">{formatCurrency(total)}</span>
               </div>
             </div>
           </div>

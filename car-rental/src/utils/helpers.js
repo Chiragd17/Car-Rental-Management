@@ -2,7 +2,7 @@
 export const formatCurrency = (amount) =>
   new Intl.NumberFormat('en-IN', {
     style: 'currency', currency: 'INR', maximumFractionDigits: 0,
-  }).format(amount || 0)
+  }).format(amount || 0).replace(/^(\D+)/, '$1\u00A0\u00A0')
 
 // Calculate rental days between two date strings
 export const calcDays = (pickup, returnDate) => {

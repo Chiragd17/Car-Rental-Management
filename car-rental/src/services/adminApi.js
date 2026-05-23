@@ -34,4 +34,13 @@ export const createEmployee = (body) =>
 // ── Rents / Damage Compensation ───────────────────────────────
 // PUT /api/rents/by-reservation/:reserve_id/damage
 export const addDamageCompensation = (reserveId, payload) =>
-  api.put(`/rents/by-reservation/${reserveId}/damage`, payload).then((r) => r.data)
+  api.put(`/rents/by-reservation/${reserveId}/damage`, payload).then((r) => r.data)
+
+// ── Actions System ────────────────────────────────────────────
+// PUT /api/reservations/:id/complete
+export const markReservationCompleted = (id) =>
+  api.put(`/reservations/${id}/complete`).then((r) => r.data)
+
+// GET /api/customers/:id/history
+export const getCustomerHistory = (custId) =>
+  api.get(`/customers/${custId}/history`).then((r) => r.data)

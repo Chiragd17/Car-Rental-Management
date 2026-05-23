@@ -18,7 +18,11 @@ import ApiError from '../utils/ApiError.js';
 const errorHandler = (err, _req, res, _next) => {
   // ── 1. Log full error in development for debugging ────────
   if (process.env.NODE_ENV !== 'production') {
-    console.error('❌  Error →', err);
+    if (err.statusCode === 401) {
+      console.warn(`⚠️  Auth Warning → ${err.message}`);
+    } else {
+      console.error('❌  Error →', err);
+    }
   }
 
   // ── 2. If it's our custom ApiError, use its statusCode ────

@@ -9,8 +9,11 @@ import {
   deleteVehicle,
   getAllEmployees,
   createEmployee,
-  addDamageCompensation
+  addDamageCompensation,
+  markReservationCompleted,
+  getCustomerHistory
 } from '../services/adminApi'
+import html2pdf from 'html2pdf.js'
 import { formatCurrency, formatDate } from '../utils/helpers'
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -96,6 +99,16 @@ export default function Admin() {
   const [showDamageModal, setShowDamageModal] = useState(false)
   const [damageForm, setDamageForm] = useState({ amount: '', description: '', reserve_id: null })
   const [damageLoading, setDamageLoading] = useState(false)
+
+  // Actions System State
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [showRefundModal, setShowRefundModal] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState(null)
+  const [customerHistory, setCustomerHistory] = useState(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [actionLoading, setActionLoading] = useState(null)
 
   // Access control — is_admin from MySQL
   useEffect(() => {
@@ -193,6 +206,47 @@ export default function Admin() {
     finally { setDamageLoading(false) }
   }
 
+  const handleMarkReturned = async (reserveId) => {
+    if (!window.confirm('Mark this vehicle as returned? This will complete the reservation and free up the vehicle.')) return;
+    setActionLoading(reserveId);
+    try {
+      await markReservationCompleted(reserveId);
+      const res = await getDashboardStats();
+      setStats(res.data);
+    } catch (err) {
+      alert(err.message || 'Error marking returned');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  const handleViewHistory = async (booking) => {
+    setSelectedBooking(booking);
+    setShowHistoryModal(true);
+    setHistoryLoading(true);
+    setCustomerHistory(null);
+    try {
+      const res = await getCustomerHistory(booking.cust_id);
+      setCustomerHistory(res.data);
+    } catch (err) {
+      alert(err.message || 'Error fetching history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  const downloadInvoice = () => {
+    const element = document.getElementById('invoice-content');
+    const opt = {
+      margin: 0.5,
+      filename: `Invoice_${selectedBooking.reserve_id}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save();
+  }
+
   const inputCls = `w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-forest
     focus:outline-none focus:ring-2 focus:ring-orange/30 focus:border-orange transition-all`
   const labelCls = 'block text-xs font-semibold text-forest/60 uppercase tracking-wider mb-1'
@@ -246,12 +300,13 @@ export default function Admin() {
             ) : stats ? (
               <>
                 {/* 1. ANALYTICS CARDS (Top Section) */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <StatCard icon="🟢" label="Active Reservations" value={stats.activeReservations || 0} color="green" />
-                  <StatCard icon="✅" label="Completed Rentals" value={stats.completedRentals || 0} color="blue" />
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <StatCard icon="🟢" label="Active Res." value={stats.activeReservations || 0} color="green" />
+                  <StatCard icon="✅" label="Completed" value={stats.completedRentals || 0} color="blue" />
                   <StatCard icon="❌" label="Cancelled" value={stats.cancelledReservations || 0} color="red" />
-                  <StatCard icon="💰" label="Revenue Generated" value={formatCurrency(stats.totalRevenue || 0)} color="orange" />
-                  <StatCard icon="🏆" label="Top Vehicle Type" value={
+                  <StatCard icon="💰" label="Revenue" value={formatCurrency(stats.revenueAnalytics?.revenue_excluding_tax || 0)} sub="(Excl. Tax)" color="orange" />
+                  <StatCard icon="🏛️" label="Tax Collected" value={formatCurrency(stats.revenueAnalytics?.total_tax_collected || 0)} sub="(GST)" color="green" />
+                  <StatCard icon="🏆" label="Top Type" value={
                     stats.bookingsByVehicleType?.length > 0 
                       ? stats.bookingsByVehicleType.sort((a,b) => b.value - a.value)[0].name 
                       : 'N/A'
@@ -348,13 +403,13 @@ export default function Admin() {
                         <tbody className="divide-y divide-gray-50">
                           {stats.recentBookings.map((booking) => {
                             // Determine status
-                            let status = { label: 'Pending', color: 'bg-yellow-100 text-yellow-700' };
+                            let status = { label: 'Pending', color: 'bg-yellow-100 text-yellow-700 border border-yellow-200' };
                             if (booking.cancellation_details) {
-                              status = { label: 'Cancelled', color: 'bg-red-100 text-red-700' };
+                              status = { label: 'Cancelled', color: 'bg-red-100 text-red-700 border border-red-200' };
+                            } else if (booking.completed_at) {
+                              status = { label: 'Completed', color: 'bg-blue-100 text-blue-700 border border-blue-200' };
                             } else if (booking.total_pay) {
-                              status = { label: 'Paid', color: 'bg-green-100 text-green-700' };
-                            } else if (new Date(booking.return_date) < new Date()) {
-                              status = { label: 'Completed', color: 'bg-blue-100 text-blue-700' };
+                              status = { label: 'Paid', color: 'bg-green-100 text-green-700 border border-green-200' };
                             }
 
                             return (
@@ -395,18 +450,57 @@ export default function Admin() {
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 align-top">
-                                  {status.label === 'Completed' && (
-                                    <button 
-                                      onClick={() => {
-                                        setDamageForm({ amount: '', description: '', reserve_id: booking.reserve_id })
-                                        setFormError('')
-                                        setShowDamageModal(true)
-                                      }}
-                                      className="text-xs font-semibold bg-red-50 text-red-600 px-3 py-1.5 rounded-lg border border-red-100 hover:bg-red-100 transition-colors"
-                                    >
-                                      Add Damage
+                                  <div className="flex flex-col gap-1 w-40">
+                                    <button onClick={() => { setSelectedBooking(booking); setShowDetailsModal(true); }}
+                                      className="text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 hover:text-forest hover:bg-gray-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2">
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                      View Details
                                     </button>
-                                  )}
+
+                                    {status.label === 'Paid' || status.label === 'Pending' ? (
+                                      <>
+                                        <button 
+                                          onClick={() => handleMarkReturned(booking.reserve_id)}
+                                          disabled={actionLoading === booking.reserve_id}
+                                          className="text-left text-[11px] font-bold uppercase tracking-wider text-green-600 hover:bg-green-50 px-2.5 py-2 rounded transition-colors disabled:opacity-50 flex items-center gap-2"
+                                        >
+                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                          {actionLoading === booking.reserve_id ? 'Updating...' : 'Mark Returned'}
+                                        </button>
+                                        <button 
+                                          onClick={() => { setDamageForm({ amount: '', description: '', reserve_id: booking.reserve_id }); setFormError(''); setShowDamageModal(true); }}
+                                          className="text-left text-[11px] font-bold uppercase tracking-wider text-red-500 hover:bg-red-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2"
+                                        >
+                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                          Add Damage
+                                        </button>
+                                        <button onClick={() => { setSelectedBooking(booking); setShowInvoiceModal(true); }}
+                                          className="text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 hover:text-forest hover:bg-gray-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2">
+                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                          View Invoice
+                                        </button>
+                                      </>
+                                    ) : status.label === 'Cancelled' ? (
+                                      <button onClick={() => { setSelectedBooking(booking); setShowRefundModal(true); }}
+                                        className="text-left text-[11px] font-bold uppercase tracking-wider text-purple-600 hover:bg-purple-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2">
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                                        Refund Info
+                                      </button>
+                                    ) : status.label === 'Completed' ? (
+                                      <>
+                                        <button onClick={() => { setSelectedBooking(booking); setShowInvoiceModal(true); }}
+                                          className="text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 hover:text-forest hover:bg-gray-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2">
+                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                          View Invoice
+                                        </button>
+                                        <button onClick={() => handleViewHistory(booking)}
+                                          className="text-left text-[11px] font-bold uppercase tracking-wider text-blue-600 hover:bg-blue-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2">
+                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                                          Customer History
+                                        </button>
+                                      </>
+                                    ) : null}
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -765,6 +859,215 @@ export default function Admin() {
           </form>
         </Modal>
       )}
+
+      {/* ── NEW PREMIUM MODALS ── */}
+
+      {/* BOOKING DETAILS MODAL */}
+      {showDetailsModal && selectedBooking && (
+        <Modal title={`Booking Details #${selectedBooking.reserve_id}`} onClose={() => setShowDetailsModal(false)}>
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Customer</p>
+                <p className="font-semibold text-forest mt-1">{selectedBooking.first_name} {selectedBooking.last_name}</p>
+                <p className="text-sm text-gray-500">{selectedBooking.email}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Vehicle</p>
+                <p className="font-semibold text-forest mt-1">{selectedBooking.model}</p>
+                <p className="text-sm text-gray-500">{selectedBooking.vehicle_type}</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Pickup Date</p>
+                <p className="font-medium text-forest">{formatDate(selectedBooking.pickup_date)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Return Date</p>
+                <p className="font-medium text-forest">{formatDate(selectedBooking.return_date)}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Location</p>
+                <p className="font-medium text-forest">{selectedBooking.pickup_location}</p>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-4 space-y-2 text-sm">
+              <div className="flex justify-between text-gray-600">
+                <span>Base Rent</span>
+                <span className="font-medium">{formatCurrency(selectedBooking.base_rent)}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Tax Amount (GST {selectedBooking.tax_percentage}%)</span>
+                <span className="font-medium">{formatCurrency(selectedBooking.tax_amount)}</span>
+              </div>
+              <div className="flex justify-between text-forest font-semibold pt-2 border-t border-gray-50">
+                <span>Estimated Total</span>
+                <span className="text-lg">{formatCurrency(selectedBooking.estimated_total)}</span>
+              </div>
+              {selectedBooking.total_pay && (
+                <div className="flex justify-between text-green-700 font-bold bg-green-50 p-2 rounded-lg border border-green-100 mt-2">
+                  <span>Actual Amount Paid</span>
+                  <span>{formatCurrency(selectedBooking.total_pay)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* REFUND MODAL */}
+      {showRefundModal && selectedBooking && (
+        <Modal title="Cancellation & Refund Breakdown" onClose={() => setShowRefundModal(false)}>
+          <div className="space-y-6">
+            <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-sm">
+              <p className="font-bold text-red-800 mb-1">Cancellation Reason:</p>
+              <p className="text-red-700">{selectedBooking.cancellation_reason}</p>
+              <p className="text-red-600 mt-2 italic">"{selectedBooking.cancellation_details}"</p>
+            </div>
+            
+            <div className="border border-gray-100 rounded-xl p-4 space-y-3 text-sm">
+              <div className="flex justify-between text-gray-600">
+                <span>Estimated Rental Cost</span>
+                <span className="font-medium">{formatCurrency(selectedBooking.estimated_total)}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Refund Eligibility</span>
+                <span className="font-bold text-purple-600">{selectedBooking.refund_percentage}%</span>
+              </div>
+              <div className="flex justify-between text-forest font-semibold pt-3 border-t border-gray-50">
+                <span>Final Refund Processed</span>
+                <span className="text-lg text-green-600">{formatCurrency(selectedBooking.refund_amount)}</span>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* CUSTOMER HISTORY MODAL */}
+      {showHistoryModal && (
+        <Modal title={`Customer Insights`} onClose={() => setShowHistoryModal(false)}>
+          {historyLoading ? (
+            <div className="flex justify-center p-8"><div className="animate-spin h-8 w-8 border-4 border-orange border-t-transparent rounded-full"></div></div>
+          ) : customerHistory ? (
+            <div className="space-y-6">
+              <div className="text-center mb-4">
+                <div className="w-16 h-16 bg-orange/10 text-orange rounded-full flex items-center justify-center text-2xl mx-auto mb-2">👤</div>
+                <h4 className="font-display font-bold text-xl text-forest">{selectedBooking?.first_name} {selectedBooking?.last_name}</h4>
+                <p className="text-sm text-gray-500">{selectedBooking?.email}</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-green-50 p-4 rounded-xl border border-green-100 text-center">
+                  <p className="text-xs font-bold text-green-600 uppercase tracking-widest">Total Spent</p>
+                  <p className="text-2xl font-bold text-green-700 mt-1">{formatCurrency(customerHistory.stats.total_spent)}</p>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
+                  <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Total Bookings</p>
+                  <p className="text-2xl font-bold text-blue-700 mt-1">{customerHistory.stats.total_bookings}</p>
+                </div>
+                <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-center">
+                  <p className="text-xs font-bold text-red-600 uppercase tracking-widest">Cancellations</p>
+                  <p className="text-2xl font-bold text-red-700 mt-1">{customerHistory.stats.cancellations}</p>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-center">
+                  <p className="text-xs font-bold text-purple-600 uppercase tracking-widest">Favorite Type</p>
+                  <p className="text-xl font-bold text-purple-700 mt-1">{customerHistory.favorite_vehicle_type}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+             <p className="text-center text-gray-500">Failed to load insights.</p>
+          )}
+        </Modal>
+      )}
+
+      {/* PREMIUM INVOICE MODAL */}
+      {showInvoiceModal && selectedBooking && (
+        <Modal title="Invoice Preview" onClose={() => setShowInvoiceModal(false)}>
+          <div id="invoice-content" className="bg-white p-8 space-y-6">
+            <div className="flex justify-between items-start border-b border-gray-200 pb-6">
+              <div>
+                <h1 className="font-display font-bold text-3xl text-forest">INVOICE</h1>
+                <p className="text-sm text-gray-500 mt-1">Ref: #{selectedBooking.reserve_id}-{new Date().getFullYear()}</p>
+              </div>
+              <div className="text-right">
+                <h2 className="font-bold text-forest">DriveElite Rentals</h2>
+                <p className="text-sm text-gray-500">Mumbai, India</p>
+                <p className="text-sm text-gray-500">contact@driveelite.com</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-8 py-4">
+              <div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Billed To</p>
+                <p className="font-semibold text-forest">{selectedBooking.first_name} {selectedBooking.last_name}</p>
+                <p className="text-sm text-gray-500">{selectedBooking.email}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Rental Period</p>
+                <p className="text-sm font-semibold text-forest">{formatDate(selectedBooking.pickup_date)}</p>
+                <p className="text-sm text-gray-500">to {formatDate(selectedBooking.return_date)}</p>
+              </div>
+            </div>
+
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-600">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Description</th>
+                    <th className="px-4 py-3 font-semibold text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <td className="px-4 py-4">
+                      <p className="font-semibold text-forest">{selectedBooking.model}</p>
+                      <p className="text-xs text-gray-500">Base Rental Cost</p>
+                    </td>
+                    <td className="px-4 py-4 text-right font-medium">{formatCurrency(selectedBooking.base_rent)}</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-gray-600">GST ({selectedBooking.tax_percentage}%)</td>
+                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(selectedBooking.tax_amount)}</td>
+                  </tr>
+                  {Number(selectedBooking.damage_compensation) > 0 && (
+                    <tr>
+                      <td className="px-4 py-3 text-red-600 font-semibold">Damage Charges</td>
+                      <td className="px-4 py-3 text-right text-red-600 font-semibold">{formatCurrency(selectedBooking.damage_compensation)}</td>
+                    </tr>
+                  )}
+                  {Number(selectedBooking.refund_amount) > 0 && (
+                    <tr>
+                      <td className="px-4 py-3 text-green-600 font-semibold">Refund Applied</td>
+                      <td className="px-4 py-3 text-right text-green-600 font-semibold">-{formatCurrency(selectedBooking.refund_amount)}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <div className="w-1/2">
+                <div className="flex justify-between border-t-2 border-forest pt-3">
+                  <span className="font-bold text-forest uppercase tracking-widest">Total Paid</span>
+                  <span className="font-display font-bold text-2xl text-forest">{formatCurrency(selectedBooking.total_pay || selectedBooking.estimated_total)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-6 flex justify-end gap-3 px-6 pb-6">
+             <button onClick={() => setShowInvoiceModal(false)} className="px-4 py-2 text-sm font-semibold text-forest border border-gray-200 rounded-xl">Close</button>
+             <button onClick={downloadInvoice} className="px-4 py-2 text-sm font-semibold text-white bg-forest hover:bg-forest/90 rounded-xl flex items-center gap-2">
+               <span>⬇️</span> Download PDF
+             </button>
+          </div>
+        </Modal>
+      )}
+
     </div>
   )
 }

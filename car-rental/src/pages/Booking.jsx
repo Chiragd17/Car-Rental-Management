@@ -26,7 +26,18 @@ export default function Booking() {
   )
 
   const days  = calcDays(pickupDate, returnDate)
-  const total = Number(vehicle.daily_price) * days
+  const base_rent = Number(vehicle.daily_price) * days
+
+  // Calculate Tax dynamically for preview
+  const type = (vehicle.vehicle_type || '').toLowerCase();
+  const modelName = (vehicle.model || '').toLowerCase();
+  let tax_percentage = 12;
+  if (['hatchback', 'sedan', 'compact suv'].includes(type)) tax_percentage = 5;
+  if (['suv', 'muv', 'ev'].includes(type)) tax_percentage = 12;
+  if (type.includes('luxury') || ['bmw', 'mercedes', 'audi', 'jaguar'].some(m => modelName.includes(m))) tax_percentage = 18;
+
+  const tax_amount = (base_rent * tax_percentage) / 100;
+  const total = base_rent + tax_amount;
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -108,20 +119,28 @@ export default function Booking() {
                 </div>
               </div>
 
-              <div className="py-4 space-y-2 text-sm border-b border-gray-100">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Daily rate</span>
-                  <span className="font-medium">{formatCurrency(vehicle.daily_price)}</span>
+              <div className="py-4 space-y-3 text-sm border-b border-gray-100">
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-gray-500 shrink-0">Daily rate</span>
+                  <span className="font-medium text-right">{formatCurrency(vehicle.daily_price)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Duration</span>
-                  <span className="font-medium">{days} day{days !== 1 ? 's' : ''}</span>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-gray-500 shrink-0">Duration</span>
+                  <span className="font-medium text-right">{days} day{days !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="flex justify-between items-start mt-2 pt-2 border-t border-gray-50 gap-4">
+                  <span className="text-gray-500 shrink-0">Base Rental</span>
+                  <span className="font-medium text-right">{formatCurrency(base_rent)}</span>
+                </div>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-gray-500 shrink-0">GST ({tax_percentage}%)</span>
+                  <span className="font-medium text-right">{formatCurrency(tax_amount)}</span>
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-between items-center">
-                <span className="font-semibold text-forest">Estimated Total</span>
-                <span className="font-display font-bold text-2xl text-forest">{formatCurrency(total)}</span>
+              <div className="pt-4 flex justify-between items-center gap-4">
+                <span className="font-semibold text-forest shrink-0">Estimated Total</span>
+                <span className="font-display font-bold text-2xl text-forest text-right tracking-normal">{formatCurrency(total)}</span>
               </div>
               <p className="text-xs text-gray-400 mt-2">* Final amount calculated by server based on actual days</p>
             </div>

@@ -46,3 +46,16 @@ export const updateMe = asyncHandler(async (req, res) => {
     data: updated,
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// GET /customers/:id/history — Get customer history (admin)
+// ─────────────────────────────────────────────────────────────
+export const getHistory = asyncHandler(async (req, res) => {
+  const custId = req.params.id;
+  const history = await CustomerModel.getHistory(custId);
+
+  res.status(200).json({
+    success: true,
+    data: history,
+  });
+});

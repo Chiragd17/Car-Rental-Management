@@ -18,6 +18,7 @@ export default function BookingCard({ reservation, onCancelled }) {
     refund_amount, refund_percentage,
     model, plate_no, daily_price, estimated_total,
     total_pay, damage_compensation, damage_description,
+    tax_percentage, tax_amount, base_rent
   } = reservation
 
   const status = reservationStatus(reservation)
@@ -143,22 +144,21 @@ export default function BookingCard({ reservation, onCancelled }) {
           </div>
 
           <div className="flex flex-col items-end gap-3">
-            <div className="text-right">
-              <p className="text-xs text-gray-400">{total_pay ? 'Total Paid' : 'Estimated Total'}</p>
-              <p className="text-xl font-display font-bold text-forest">{formatCurrency(total_pay || estimated_total)}</p>
-              {Number(damage_compensation) > 0 && (
-                <div className="mt-2 flex flex-col items-end">
-                  <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-center">
-                    <p className="text-xs font-semibold text-red-600 tracking-wide">
-                      + Damage: {formatCurrency(damage_compensation)}
-                    </p>
-                    {damage_description && (
-                      <p className="text-[10px] text-red-500/80 mt-1 max-w-[200px] leading-snug">
-                        "{damage_description}"
-                      </p>
-                    )}
-                  </div>
-                </div>
+            <div className="text-right flex flex-col items-end">
+              <div className="bg-cream/50 border border-gray-100 rounded-xl p-3 mb-2 text-xs text-right w-56 space-y-1.5">
+                <div className="flex justify-between text-gray-500"><span className="text-left font-medium">Rental Cost:</span><span>{formatCurrency(base_rent)}</span></div>
+                <div className="flex justify-between text-gray-500"><span className="text-left font-medium">GST ({tax_percentage}%):</span><span>{formatCurrency(tax_amount)}</span></div>
+                {Number(damage_compensation) > 0 && <div className="flex justify-between text-red-500"><span className="text-left font-medium">Damage:</span><span>+{formatCurrency(damage_compensation)}</span></div>}
+                {hasRefund && <div className="flex justify-between text-green-600"><span className="text-left font-medium">Refund:</span><span>-{formatCurrency(refund_amount)}</span></div>}
+              </div>
+              
+              <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold">{total_pay ? 'Final Total' : 'Estimated Total'}</p>
+              <p className="text-2xl font-display font-bold text-forest">{formatCurrency(total_pay || estimated_total)}</p>
+              
+              {damage_description && Number(damage_compensation) > 0 && (
+                <p className="text-[10px] text-red-500/80 mt-1.5 max-w-[200px] leading-snug">
+                  Damage reason: "{damage_description}"
+                </p>
               )}
             </div>
             {isCancellable && (

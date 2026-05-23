@@ -102,6 +102,9 @@ CREATE TABLE IF NOT EXISTS reservation (
   cancellation_reason  VARCHAR(100) NULL,
   refund_amount        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   refund_percentage    INT          NOT NULL DEFAULT 0,
+  tax_percentage      DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+  tax_amount          DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  completed_at        TIMESTAMP   NULL DEFAULT NULL,
   -- Foreign keys
   cust_id             INT         NOT NULL,
   vehicle_id          INT         NOT NULL,

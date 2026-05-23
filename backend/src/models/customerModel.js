@@ -105,3 +105,35 @@ export const countAll = async () => {
   const [rows] = await db.execute('SELECT COUNT(*) AS total FROM customer');
   return rows[0].total;
 };
+
+// ── Get Customer History ────────────────────────────────────
+export const getHistory = async (custId) => {
+  // Aggregate stats
+  const [stats] = await db.execute(
+    `SELECT 
+       COUNT(r.reserve_id) as total_bookings,
+       SUM(CASE WHEN r.cancellation_details IS NOT NULL THEN 1 ELSE 0 END) as cancellations,
+       COALESCE(SUM(rn.total_pay), 0) as total_spent
+     FROM reservation r
+     LEFT JOIN rent rn ON r.reserve_id = rn.reserve_id
+     WHERE r.cust_id = ?`,
+    [custId]
+  );
+
+  // Favorite vehicle type
+  const [favType] = await db.execute(
+    `SELECT v.vehicle_type, COUNT(r.reserve_id) as count
+     FROM reservation r
+     JOIN vehicle v ON r.vehicle_id = v.vehicle_id
+     WHERE r.cust_id = ?
+     GROUP BY v.vehicle_type
+     ORDER BY count DESC
+     LIMIT 1`,
+    [custId]
+  );
+
+  return {
+    stats: stats[0] || { total_bookings: 0, cancellations: 0, total_spent: 0 },
+    favorite_vehicle_type: favType[0]?.vehicle_type || 'None'
+  };
+};

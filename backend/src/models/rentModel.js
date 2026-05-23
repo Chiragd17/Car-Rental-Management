@@ -107,6 +107,21 @@ export const totalRevenue = async () => {
   return rows[0].revenue;
 };
 
+export const revenueAnalytics = async () => {
+  const [rows] = await db.execute(`
+    SELECT 
+      COALESCE(SUM(rn.total_pay), 0) AS revenue_including_tax,
+      COALESCE(SUM(r.tax_amount), 0) AS total_tax_collected
+    FROM rent rn
+    JOIN reservation r ON rn.reserve_id = r.reserve_id
+  `);
+  return {
+    revenue_including_tax: Number(rows[0].revenue_including_tax),
+    total_tax_collected: Number(rows[0].total_tax_collected),
+    revenue_excluding_tax: Number(rows[0].revenue_including_tax) - Number(rows[0].total_tax_collected)
+  };
+};
+
 export const topRentedVehicles = async () => {
   const [rows] = await db.execute(
     `SELECT v.vehicle_id, v.model, v.plate_no, COUNT(*) AS rent_count
@@ -120,7 +135,7 @@ export const topRentedVehicles = async () => {
 };
 
 export const countCompleted = async () => {
-  const [rows] = await db.execute('SELECT COUNT(*) AS total FROM rent');
+  const [rows] = await db.execute('SELECT COUNT(*) AS total FROM reservation WHERE completed_at IS NOT NULL');
   return rows[0].total;
 };
 

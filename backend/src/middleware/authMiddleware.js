@@ -31,7 +31,7 @@ const protect = (req, _res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new ApiError(401, 'Missing or malformed Authorization header');
+    return next(new ApiError(401, 'Missing or malformed Authorization header'));
   }
 
   const token = authHeader.split(' ')[1];

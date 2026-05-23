@@ -79,6 +79,21 @@ export const create = asyncHandler(async (req, res) => {
     throw new ApiError(409, 'This vehicle is already booked for the selected dates. Please choose different dates.');
   }
 
+  // ── Calculate Tax ─────────────────────────────────────────
+  const start = new Date(pickup_date);
+  const end = new Date(return_date);
+  const numberOfDays = Math.max(1, Math.round((end - start) / (1000 * 3600 * 24)));
+  const base_rent = numberOfDays * vehicle.daily_price;
+
+  const type = (vehicle.vehicle_type || '').toLowerCase();
+  const model = (vehicle.model || '').toLowerCase();
+  let tax_percentage = 12;
+  if (['hatchback', 'sedan', 'compact suv'].includes(type)) tax_percentage = 5;
+  if (['suv', 'muv', 'ev'].includes(type)) tax_percentage = 12;
+  if (type.includes('luxury') || ['bmw', 'mercedes', 'audi', 'jaguar'].some(m => model.includes(m))) tax_percentage = 18;
+
+  const tax_amount = (base_rent * tax_percentage) / 100;
+
   // ── Begin transaction ─────────────────────────────────────
   const connection = await db.getConnection();
   try {
@@ -93,6 +108,8 @@ export const create = asyncHandler(async (req, res) => {
         pickup_location,
         cust_id: customer.cust_id,
         vehicle_id,
+        tax_percentage,
+        tax_amount,
       },
       connection
     );
@@ -155,7 +172,19 @@ export const update = asyncHandler(async (req, res) => {
     throw new ApiError(404, `Reservation ${req.params.id} not found`);
   }
 
-  await ReservationModel.update(req.params.id, req.body);
+  const updateData = { ...req.body };
+  if (updateData.pickup_date || updateData.return_date) {
+    const pickup = updateData.pickup_date || existing.pickup_date;
+    const returnD = updateData.return_date || existing.return_date;
+    const start = new Date(pickup);
+    const end = new Date(returnD);
+    const numberOfDays = Math.max(1, Math.round((end - start) / (1000 * 3600 * 24)));
+    const vehicle = await VehicleModel.findById(existing.vehicle_id);
+    const base_rent = numberOfDays * vehicle.daily_price;
+    updateData.tax_amount = (base_rent * existing.tax_percentage) / 100;
+  }
+
+  await ReservationModel.update(req.params.id, updateData);
 
   const updated = await ReservationModel.findById(req.params.id);
 
@@ -240,6 +269,49 @@ export const cancel = asyncHandler(async (req, res) => {
       cancellation_reason,
       cancellation_details: fullDetails,
       estimated_total: estimatedTotal,
+    });
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// PUT /reservations/:id/complete — Mark as returned/completed
+// ─────────────────────────────────────────────────────────────
+export const markCompleted = asyncHandler(async (req, res) => {
+  const reserveId = req.params.id;
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const reservation = await ReservationModel.findById(reserveId);
+    if (!reservation) {
+      throw new ApiError(404, `Reservation ${reserveId} not found`);
+    }
+
+    if (reservation.completed_at) {
+      throw new ApiError(400, 'This reservation is already marked as completed');
+    }
+
+    if (reservation.cancellation_details) {
+      throw new ApiError(400, 'Cannot complete a cancelled reservation');
+    }
+
+    // 1. Mark reservation as completed
+    await ReservationModel.markCompleted(reserveId, connection);
+
+    // 2. Restore vehicle availability
+    await VehicleModel.setAvailability(reservation.vehicle_id, true, connection);
+
+    await connection.commit();
+
+    res.status(200).json({
+      success: true,
+      message: 'Reservation marked as completed and vehicle is now available',
     });
   } catch (err) {
     await connection.rollback();
