@@ -18,10 +18,12 @@ import ApiError from '../utils/ApiError.js';
 const errorHandler = (err, _req, res, _next) => {
   // ── 1. Log full error in development for debugging ────────
   if (process.env.NODE_ENV !== 'production') {
-    if (err.statusCode === 401) {
+    if (err instanceof ApiError) {
+      console.warn(`⚠️  Api Validation [${err.statusCode}] → ${err.message}`);
+    } else if (err.statusCode === 401) {
       console.warn(`⚠️  Auth Warning → ${err.message}`);
     } else {
-      console.error('❌  Error →', err);
+      console.error('❌  Unhandled Server Error →', err);
     }
   }
 

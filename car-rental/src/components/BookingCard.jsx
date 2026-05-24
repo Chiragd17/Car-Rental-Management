@@ -17,8 +17,9 @@ export default function BookingCard({ reservation, onCancelled }) {
     pickup_location, cancellation_details, cancellation_reason,
     refund_amount, refund_percentage,
     model, plate_no, daily_price, estimated_total,
-    total_pay, damage_compensation, damage_description,
-    tax_percentage, tax_amount, base_rent
+    total_pay, damage_compensation, damage_description, damage_notes,
+    tax_percentage, tax_amount, base_rent,
+    amount_paid, extra_charges, pending_amount
   } = reservation
 
   const status = reservationStatus(reservation)
@@ -40,7 +41,7 @@ export default function BookingCard({ reservation, onCancelled }) {
         cancellation_reason: result.cancellation_reason,
         refund_amount: result.final_refund,
         refund_percentage: result.refund_percentage,
-        damage_compensation: result.damage_compensation,
+        damage_compensation: result.damage_deduction,
       })
     } catch (err) {
       throw err // Let the modal handle the error display
@@ -106,27 +107,38 @@ export default function BookingCard({ reservation, onCancelled }) {
 
                 {/* Refund info banner */}
                 {hasRefund ? (
-                  <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">Refund Processed</span>
+                      <span className="text-xs font-bold text-green-800 uppercase tracking-wide">Refund Processed</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <p className="text-sm text-green-700">
-                          <span className="font-semibold">{refund_percentage}%</span> refund applied
-                        </p>
-                        {reservation.damage_compensation > 0 && (
-                          <p className="text-xs text-green-600/70">
-                            Damage deduction: {formatCurrency(reservation.damage_compensation)}
-                          </p>
-                        )}
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex justify-between text-green-800">
+                        <span>Refund Eligibility</span>
+                        <span className="font-semibold">{refund_percentage}% of Base Rent</span>
                       </div>
-                      <p className="font-display font-bold text-lg text-green-700">
-                        {formatCurrency(refund_amount)}
-                      </p>
+                      <div className="flex justify-between text-green-800">
+                        <span>Refundable Base Amount</span>
+                        <span className="font-semibold">{formatCurrency(Number(refund_amount) + Number(damage_compensation || 0))}</span>
+                      </div>
+                      <div className="flex justify-between text-red-600/80">
+                        <span>Non-refundable GST</span>
+                        <span>{formatCurrency(tax_amount)}</span>
+                      </div>
+                      {Number(damage_compensation) > 0 && (
+                        <div className="flex justify-between text-red-600/80">
+                          <span>Damage Deduction</span>
+                          <span>-{formatCurrency(damage_compensation)}</span>
+                        </div>
+                      )}
+                      <div className="border-t border-green-200/60 pt-1.5 mt-1.5 flex justify-between">
+                        <span className="font-bold text-green-800 text-sm">Final Refund</span>
+                        <span className="font-display font-bold text-lg text-green-700">
+                          {formatCurrency(refund_amount)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ) : isCancelled && Number(refund_percentage) === 0 ? (
@@ -141,6 +153,31 @@ export default function BookingCard({ reservation, onCancelled }) {
                 ) : null}
               </div>
             )}
+
+            {/* ── Pending Payment Warning ────────────────────── */}
+            {Number(pending_amount) > 0 && (
+              <div className="mt-4 bg-orange-50 border border-orange-200 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="bg-orange-100 p-2 rounded-full shrink-0">
+                    <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-orange-900 uppercase tracking-widest">Additional Payment Required</h4>
+                    <p className="text-xs text-orange-800 mt-1">Due to post-rental charges, there is an outstanding balance on your reservation.</p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end shrink-0 gap-2">
+                  <div className="text-right">
+                    <p className="text-[10px] text-orange-800 font-bold uppercase tracking-widest mb-0.5">Pending Due</p>
+                    <p className="text-2xl font-display font-bold text-orange-600">{formatCurrency(pending_amount)}</p>
+                  </div>
+                  <button onClick={() => alert("Online payment gateway integration coming soon.")}
+                    className="px-4 py-2 bg-orange hover:bg-orange/90 text-white text-xs font-bold rounded-lg transition-colors uppercase tracking-widest shadow-sm">
+                    Pay Now
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col items-end gap-3">
@@ -149,15 +186,17 @@ export default function BookingCard({ reservation, onCancelled }) {
                 <div className="flex justify-between text-gray-500"><span className="text-left font-medium">Rental Cost:</span><span>{formatCurrency(base_rent)}</span></div>
                 <div className="flex justify-between text-gray-500"><span className="text-left font-medium">GST ({tax_percentage}%):</span><span>{formatCurrency(tax_amount)}</span></div>
                 {Number(damage_compensation) > 0 && <div className="flex justify-between text-red-500"><span className="text-left font-medium">Damage:</span><span>+{formatCurrency(damage_compensation)}</span></div>}
+                {Number(extra_charges) > 0 && <div className="flex justify-between text-red-500"><span className="text-left font-medium">Extra Charges:</span><span>+{formatCurrency(extra_charges)}</span></div>}
                 {hasRefund && <div className="flex justify-between text-green-600"><span className="text-left font-medium">Refund:</span><span>-{formatCurrency(refund_amount)}</span></div>}
+                {total_pay && <div className="flex justify-between text-gray-500 border-t border-gray-200 pt-1.5 mt-1.5"><span className="text-left font-medium">Already Paid:</span><span>{formatCurrency(amount_paid || (total_pay && !pending_amount ? total_pay : estimated_total))}</span></div>}
               </div>
               
               <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold">{total_pay ? 'Final Total' : 'Estimated Total'}</p>
               <p className="text-2xl font-display font-bold text-forest">{formatCurrency(total_pay || estimated_total)}</p>
               
-              {damage_description && Number(damage_compensation) > 0 && (
+              {(damage_description || damage_notes) && Number(damage_compensation) > 0 && (
                 <p className="text-[10px] text-red-500/80 mt-1.5 max-w-[200px] leading-snug">
-                  Damage reason: "{damage_description}"
+                  Notes: "{damage_notes || damage_description}"
                 </p>
               )}
             </div>

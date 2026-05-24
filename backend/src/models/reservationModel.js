@@ -52,7 +52,8 @@ export const findByCustomerId = async (custId) => {
     `SELECT r.*, v.model, v.plate_no, v.daily_price,
             (r.number_of_days * v.daily_price) AS base_rent,
             (r.number_of_days * v.daily_price + r.tax_amount) AS estimated_total,
-            rn.total_pay, rn.damage_compensation, rn.damage_description
+            rn.total_pay, rn.damage_compensation, rn.damage_description,
+            rn.amount_paid, rn.extra_charges, rn.pending_amount, rn.damage_notes
      FROM reservation r
      JOIN vehicle v ON r.vehicle_id = v.vehicle_id
      LEFT JOIN rent rn ON r.reserve_id = rn.reserve_id
@@ -145,7 +146,7 @@ export const countCancelled = async () => {
 
 export const countActive = async () => {
   const [rows] = await db.execute(
-    'SELECT COUNT(*) AS total FROM reservation WHERE pickup_date <= NOW() AND completed_at IS NULL AND cancellation_details IS NULL'
+    'SELECT COUNT(*) AS total FROM reservation WHERE pickup_date <= CURRENT_DATE() AND return_date >= CURRENT_DATE() AND cancellation_details IS NULL'
   );
   return rows[0].total;
 };
@@ -160,7 +161,8 @@ export const getRecent = async (limit = 10) => {
             v.model, v.vehicle_type, v.daily_price,
             (r.number_of_days * v.daily_price) AS base_rent,
             (r.number_of_days * v.daily_price + r.tax_amount) AS estimated_total,
-            rn.total_pay, rn.damage_compensation, rn.damage_description
+            rn.total_pay, rn.damage_compensation, rn.damage_description,
+            rn.amount_paid, rn.extra_charges, rn.pending_amount, rn.damage_notes
      FROM reservation r
      JOIN customer c ON r.cust_id = c.cust_id
      JOIN vehicle v ON r.vehicle_id = v.vehicle_id

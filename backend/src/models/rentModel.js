@@ -12,6 +12,9 @@ export const create = async (data) => {
     refund,
     damage_compensation,
     total_pay,
+    amount_paid,
+    extra_charges,
+    pending_amount,
     pay_date,
     cust_id,
     vehicle_id,
@@ -20,15 +23,18 @@ export const create = async (data) => {
 
   const [result] = await db.execute(
     `INSERT INTO rent
-       (pay_method, down_payment, refund, damage_compensation, total_pay, pay_date,
+       (pay_method, down_payment, refund, damage_compensation, total_pay, amount_paid, extra_charges, pending_amount, pay_date,
         cust_id, vehicle_id, reserve_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       pay_method,
       down_payment  ?? 0,
       refund        ?? 0,
       damage_compensation ?? 0,
       total_pay,
+      amount_paid   ?? 0,
+      extra_charges ?? 0,
+      pending_amount ?? 0,
       pay_date,
       cust_id,
       vehicle_id,
@@ -73,13 +79,13 @@ export const updateRefund = async (rentId, refundAmount, connection) => {
 };
 
 // ── Update damage compensation and total pay on a rent record
-export const updateDamage = async (reserveId, damageAmount, damageDescription, totalPay, connection) => {
+export const updateDamage = async (reserveId, damageAmount, damageNotes, extraCharges, totalPay, pendingAmount, connection) => {
   const conn = connection || db;
   const [result] = await conn.execute(
     `UPDATE rent 
-     SET damage_compensation = ?, damage_description = ?, total_pay = ? 
+     SET damage_compensation = ?, damage_notes = ?, extra_charges = ?, total_pay = ?, pending_amount = ? 
      WHERE reserve_id = ?`,
-    [damageAmount, damageDescription, totalPay, reserveId]
+    [damageAmount, damageNotes, extraCharges, totalPay, pendingAmount, reserveId]
   );
   return result;
 };
@@ -135,7 +141,7 @@ export const topRentedVehicles = async () => {
 };
 
 export const countCompleted = async () => {
-  const [rows] = await db.execute('SELECT COUNT(*) AS total FROM reservation WHERE completed_at IS NOT NULL');
+  const [rows] = await db.execute('SELECT COUNT(*) AS total FROM reservation WHERE return_date < CURRENT_DATE() AND cancellation_details IS NULL');
   return rows[0].total;
 };
 

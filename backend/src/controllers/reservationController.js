@@ -222,14 +222,18 @@ export const cancel = asyncHandler(async (req, res) => {
       throw new ApiError(400, 'This reservation is already cancelled');
     }
 
-    // 3. Calculate refund based on policy
+    // 3. Calculate refund based on policy (ONLY on base_rent)
     const refundPercentage = calculateRefundPercentage(reservation.pickup_date);
+    const baseRent = Number(reservation.base_rent) || 0;
+    const taxAmount = Number(reservation.tax_amount) || 0;
     const estimatedTotal = Number(reservation.estimated_total) || 0;
-    const calculatedRefund = Math.round((estimatedTotal * refundPercentage) / 100);
+
+    const refundableAmount = Math.round((baseRent * refundPercentage) / 100);
+    const nonRefundableGst = taxAmount;
 
     // 4. Check if a rent (payment) record exists for this reservation
     let damageCompensation = 0;
-    let finalRefund = calculatedRefund;
+    let finalRefund = refundableAmount;
     const rentRecord = await RentModel.findByReserveId(reserveId, connection);
 
     if (rentRecord) {
@@ -237,14 +241,16 @@ export const cancel = asyncHandler(async (req, res) => {
       damageCompensation = Number(rentRecord.damage_compensation) || 0;
 
       // Deduct damage compensation from refund
-      finalRefund = Math.max(0, calculatedRefund - damageCompensation);
+      finalRefund = Math.max(0, refundableAmount - damageCompensation);
 
       // Update the refund field on the rent record
       await RentModel.updateRefund(rentRecord.rent_id, finalRefund, connection);
     }
 
     // 5. Build the cancellation details string
-    const fullDetails = `${cancellation_reason}: ${cancellation_details}`;
+    const fullDetails = cancellation_reason === cancellation_details
+      ? cancellation_details
+      : `${cancellation_reason}: ${cancellation_details}`;
 
     // 6. Soft-cancel: store reason, details, and refund info
     await ReservationModel.cancel(reserveId, {
@@ -262,13 +268,15 @@ export const cancel = asyncHandler(async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Reservation cancelled',
+      base_rent: baseRent,
+      tax_amount: taxAmount,
       refund_percentage: refundPercentage,
-      calculated_refund: calculatedRefund,
-      damage_compensation: damageCompensation,
+      refundable_amount: refundableAmount,
+      non_refundable_gst: nonRefundableGst,
+      damage_deduction: damageCompensation,
       final_refund: finalRefund,
       cancellation_reason,
       cancellation_details: fullDetails,
-      estimated_total: estimatedTotal,
     });
   } catch (err) {
     await connection.rollback();

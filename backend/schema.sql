@@ -133,8 +133,12 @@ CREATE TABLE IF NOT EXISTS rent (
   refund              DECIMAL(10,2)   NOT NULL DEFAULT 0.00,
   damage_compensation DECIMAL(10,2)   NOT NULL DEFAULT 0.00,
   damage_description  TEXT            NULL,
+  damage_notes        TEXT            NULL,
+  amount_paid         DECIMAL(10,2)   NOT NULL DEFAULT 0.00,
+  extra_charges       DECIMAL(10,2)   NOT NULL DEFAULT 0.00,
+  pending_amount      DECIMAL(10,2)   NOT NULL DEFAULT 0.00,
   -- total_pay is calculated in application code (NOT stored)
-  -- Formula: (number_of_days × daily_price) + damage_compensation - refund
+  -- Formula: (number_of_days × daily_price) + damage_compensation + extra_charges - refund
   total_pay           DECIMAL(10,2)   NOT NULL DEFAULT 0.00,
   pay_date            DATE            NOT NULL,
   -- Foreign keys

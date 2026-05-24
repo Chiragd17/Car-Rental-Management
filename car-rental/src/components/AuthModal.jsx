@@ -108,7 +108,7 @@ export default function AuthModal() {
             <div className="flex-1 h-px bg-white/15" /><span className="text-white/30 text-xs">or</span><div className="flex-1 h-px bg-white/15" />
           </div>
 
-          <form onSubmit={tab === 'login' ? handleLogin : handleRegister} className="space-y-3">
+          <form onSubmit={tab === 'login' ? handleLogin : handleRegister} className="space-y-3" autoComplete="off">
             {tab === 'register' && (
               <>
                 <div className="grid grid-cols-2 gap-3">
@@ -123,8 +123,8 @@ export default function AuthModal() {
                 </div>
               </>
             )}
-            <input type="email" className={inputCls} placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <input type="password" className={inputCls} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+            <input type="email" className={inputCls} placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="new-password" />
+            <input type="password" className={inputCls} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="new-password" />
 
             {error   && <div className="bg-red-500/20 border border-red-400/30 rounded-xl px-4 py-2.5 text-red-200 text-sm">{error}</div>}
             {success && <div className="bg-green-500/20 border border-green-400/30 rounded-xl px-4 py-2.5 text-green-200 text-sm">{success}</div>}

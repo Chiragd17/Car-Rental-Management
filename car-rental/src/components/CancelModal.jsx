@@ -20,7 +20,7 @@ function formatHoursRemaining(hours) {
   return `${h}h remaining`
 }
 
-function calculateRefundPreview(pickupDate, estimatedTotal) {
+function calculateRefundPreview(pickupDate, baseRent, taxAmount) {
   const now = new Date()
   
   // Robust parsing: convert to ISO string and slice to get YYYY-MM-DD
@@ -40,9 +40,10 @@ function calculateRefundPreview(pickupDate, estimatedTotal) {
   else if (hoursUntilPickup >= 24) percentage = 75
   else if (hoursUntilPickup >= 12) percentage = 50
 
-  const refund = Math.round((Number(estimatedTotal) * percentage) / 100)
+  const refundableAmount = Math.round((Number(baseRent) * percentage) / 100)
+  const nonRefundableGst = Number(taxAmount) || 0
 
-  return { hoursUntilPickup, percentage, refund }
+  return { hoursUntilPickup, percentage, refundableAmount, nonRefundableGst }
 }
 
 export default function CancelModal({ reservation, onConfirm, onClose }) {
@@ -51,12 +52,12 @@ export default function CancelModal({ reservation, onConfirm, onClose }) {
   const [confirming, setConfirming]         = useState(false)
   const [error, setError]                   = useState('')
 
-  const { pickup_date, estimated_total = 0 } = reservation
+  const { pickup_date, base_rent = 0, tax_amount = 0 } = reservation
 
   // Preview refund calculation (mirrors backend logic)
   const preview = useMemo(
-    () => calculateRefundPreview(pickup_date, estimated_total),
-    [pickup_date, estimated_total]
+    () => calculateRefundPreview(pickup_date, base_rent, tax_amount),
+    [pickup_date, base_rent, tax_amount]
   )
 
   // We don't know damage_compensation on the frontend until the backend responds,
@@ -159,51 +160,61 @@ export default function CancelModal({ reservation, onConfirm, onClose }) {
           </div>
 
           {/* Refund preview */}
-          <div className="bg-cream rounded-2xl p-4 mb-4">
+          <div className="bg-cream rounded-2xl p-4 mb-4 border border-orange/20">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-              Refund Estimate
+              Cancellation & Refund Summary
             </p>
             <div className="space-y-2.5">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Time until pickup</span>
-                <span className="font-semibold text-forest text-right">
-                  {formatHoursRemaining(preview.hoursUntilPickup)}
-                </span>
+                <span className="text-gray-500">Base Rental</span>
+                <span className="font-semibold text-forest">{formatCurrency(base_rent)}</span>
               </div>
 
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Booking amount</span>
-                <span className="font-semibold text-forest">{formatCurrency(estimated_total)}</span>
+                <div className="flex flex-col">
+                  <span className="text-gray-500">Non-refundable GST & Platform Charges</span>
+                  <span className="text-[10px] text-gray-400">Taxes and platform charges are retained upon cancellation.</span>
+                </div>
+                <span className="font-semibold text-red-500">{formatCurrency(tax_amount)}</span>
               </div>
 
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Refund percentage</span>
+              <div className="flex items-center justify-between text-sm mt-2">
+                <span className="text-gray-500">Refund Eligibility</span>
                 <span className={`font-bold text-sm px-2 py-0.5 rounded-full ${
-                  preview.percentage === 100 ? 'bg-green-50 text-green-700' :
+                  preview.percentage >= 75 ? 'bg-green-50 text-green-700' :
                   preview.percentage >= 50 ? 'bg-yellow-50 text-yellow-700' :
-                  preview.percentage > 0 ? 'bg-orange/10 text-orange' :
                   'bg-red-50 text-red-600'
                 }`}>
                   {preview.percentage}%
                 </span>
               </div>
 
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Refundable Amount</span>
+                <span className="font-semibold text-green-600">{formatCurrency(preview.refundableAmount)}</span>
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Damage Deduction</span>
+                <span className="font-semibold text-gray-400">TBD</span>
+              </div>
+
               <div className="border-t border-gray-200/60 pt-2.5 flex items-center justify-between">
-                <span className="font-semibold text-forest text-sm">Estimated Refund</span>
-                <span className="font-display font-bold text-lg text-forest">
-                  {formatCurrency(preview.refund)}
+                <span className="font-semibold text-forest text-sm">Final Estimated Refund</span>
+                <span className="font-display font-bold text-lg text-green-600">
+                  {formatCurrency(preview.refundableAmount)}
                 </span>
               </div>
 
               <p className="text-[11px] text-gray-400 leading-relaxed mt-1">
-                ⚠️ {damageNote}
+                ⚠️ Damage compensation (if any) will be further deducted from the final refund.
               </p>
             </div>
           </div>
 
           {/* Refund policy info */}
           <div className="bg-blue-50/50 rounded-xl p-3 mb-1">
-            <p className="text-xs font-semibold text-blue-600 mb-1.5">📋 Refund Policy</p>
+            <p className="text-xs font-semibold text-blue-600 mb-1.5">📋 Refund Policy (Applied to Base Rent Only)</p>
             <div className="grid grid-cols-2 gap-1 text-[11px] text-blue-700/80">
               <span>More than 48 hours before pickup</span><span className="font-semibold text-right">100% refund</span>
               <span>Between 24–48 hours before</span><span className="font-semibold text-right">75% refund</span>

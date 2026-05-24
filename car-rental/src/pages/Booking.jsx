@@ -86,7 +86,7 @@ export default function Booking() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className={labelCls}>Pickup Date</label>
-                      <input type="date" className={inputCls} value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} required />
+                      <input type="date" className={inputCls} min={new Date().toISOString().split('T')[0]} value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} required />
                     </div>
                     <div>
                       <label className={labelCls}>Return Date</label>

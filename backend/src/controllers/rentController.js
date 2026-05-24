@@ -59,6 +59,11 @@ export const create = asyncHandler(async (req, res) => {
   let totalPay       = baseRent + taxAmount + Number(damage_compensation) - Number(refund);
   totalPay = Math.max(totalPay, 0);
 
+  // For initial creation, amount paid is exactly what they owe initially
+  const amountPaid = totalPay;
+  const pendingAmount = 0;
+  const extraCharges = 0;
+
   // ── Insert the rent record ────────────────────────────────
   const result = await RentModel.create({
     pay_method,
@@ -66,6 +71,9 @@ export const create = asyncHandler(async (req, res) => {
     refund,
     damage_compensation,
     total_pay: totalPay,
+    amount_paid: amountPaid,
+    extra_charges: extraCharges,
+    pending_amount: pendingAmount,
     pay_date,
     cust_id:    customer.cust_id,
     vehicle_id: reservation.vehicle_id,
@@ -120,8 +128,12 @@ export const addDamageCompensation = asyncHandler(async (req, res) => {
   const { reserve_id } = req.params;
   const { damage_amount, damage_description } = req.body;
 
-  if (damage_amount === undefined || damage_amount < 0) {
-    throw new ApiError(400, 'Valid damage_amount is required and cannot be negative');
+  if (damage_amount === undefined || damage_amount < 0 || damage_amount > 500000) {
+    throw new ApiError(400, 'Valid damage_amount is required, cannot be negative, and must be under ₹500,000');
+  }
+  
+  if (req.body.extra_charges !== undefined && (req.body.extra_charges < 0 || req.body.extra_charges > 500000)) {
+    throw new ApiError(400, 'Extra charges cannot be negative and must be under ₹500,000');
   }
 
   // Fetch the rent record
@@ -158,22 +170,29 @@ export const addDamageCompensation = asyncHandler(async (req, res) => {
   const dailyPrice = Number(vehicle.daily_price);
   const baseRent = numberOfDays * dailyPrice;
   const taxAmount = Number(reservation.tax_amount) || 0;
+  const extraCharges = Number(req.body.extra_charges) || 0;
 
-  // Formula: base_rent + tax_amount + damage_compensation - refund
-  let totalPay = baseRent + taxAmount + Number(damage_amount) - Number(rent.refund);
+  // Formula: base_rent + tax_amount + damage_compensation + extra_charges - refund
+  let totalPay = baseRent + taxAmount + Number(damage_amount) + extraCharges - Number(rent.refund);
 
   // Clamp negative totals
   totalPay = Math.max(totalPay, 0);
 
+  // Calculate pending amount using explicitly tracked amount_paid
+  const pendingAmount = Math.max(totalPay - Number(rent.amount_paid), 0);
+
   // Update DB
-  await RentModel.updateDamage(reserve_id, damage_amount, damage_description || null, totalPay);
+  await RentModel.updateDamage(reserve_id, damage_amount, damage_description || null, extraCharges, totalPay, pendingAmount);
 
   res.status(200).json({
     success: true,
     reserve_id,
     damage_compensation: damage_amount,
+    extra_charges: extraCharges,
     refund: rent.refund,
+    amount_paid: rent.amount_paid,
     total_pay: totalPay,
-    damage_description: damage_description || null
+    pending_amount: pendingAmount,
+    damage_notes: damage_description || null
   });
 });

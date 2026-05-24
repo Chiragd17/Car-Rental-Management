@@ -195,10 +195,11 @@ export default function Admin() {
     try {
       await addDamageCompensation(damageForm.reserve_id, {
         damage_amount: Number(damageForm.amount),
+        extra_charges: Number(damageForm.extra_charges || 0),
         damage_description: damageForm.description
       })
       setShowDamageModal(false)
-      setDamageForm({ amount: '', description: '', reserve_id: null })
+      setDamageForm({ amount: '', description: '', reserve_id: null, amount_paid: 0, total_pay: 0, extra_charges: '' })
       
       const res = await getDashboardStats()
       setStats(res.data)
@@ -406,40 +407,52 @@ export default function Admin() {
                             let status = { label: 'Pending', color: 'bg-yellow-100 text-yellow-700 border border-yellow-200' };
                             if (booking.cancellation_details) {
                               status = { label: 'Cancelled', color: 'bg-red-100 text-red-700 border border-red-200' };
-                            } else if (booking.completed_at) {
+                            } else if (Number(booking.pending_amount) > 0) {
+                              status = { label: 'Pending Payment', color: 'bg-red-100 text-red-700 border border-red-300 shadow-sm' };
+                            } else if (Number(booking.damage_compensation) > 0) {
+                              status = { label: 'Damage Added', color: 'bg-yellow-100 text-yellow-700 border border-yellow-200' };
+                            } else if (new Date(booking.return_date) < new Date() || booking.completed_at) {
                               status = { label: 'Completed', color: 'bg-blue-100 text-blue-700 border border-blue-200' };
                             } else if (booking.total_pay) {
-                              status = { label: 'Paid', color: 'bg-green-100 text-green-700 border border-green-200' };
+                              status = { label: 'Fully Paid', color: 'bg-green-100 text-green-700 border border-green-200' };
                             }
 
                             return (
                               <tr key={booking.reserve_id} className="hover:bg-gray-50/50 transition-colors">
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 align-top">
                                   <div className="font-semibold text-forest">{booking.first_name} {booking.last_name}</div>
                                   <div className="text-xs text-gray-400">{booking.email}</div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 align-top">
                                   <div className="font-semibold text-forest">{booking.model}</div>
                                   <div className="text-xs text-gray-400">{booking.vehicle_type}</div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-6 py-4 align-top">
                                   <div className="text-gray-600">{formatDate(booking.pickup_date)}</div>
                                   <div className="text-xs text-gray-400">to {formatDate(booking.return_date)}</div>
                                 </td>
-                                <td className="px-6 py-4">
-                                  <div className="font-bold text-forest">{formatCurrency(booking.total_pay || booking.estimated_total)}</div>
-                                  <div className="text-xs text-gray-400">{booking.total_pay ? 'Paid' : 'Est. Total'}</div>
+                                <td className="px-6 py-4 align-top">
+                                  <div className="font-bold text-forest">{formatCurrency(booking.amount_paid || (booking.total_pay && !booking.pending_amount ? booking.total_pay : booking.estimated_total))}</div>
+                                  <div className="text-xs text-gray-400">{booking.total_pay ? 'Already Paid' : 'Est. Total'}</div>
                                   
-                                  {(Number(booking.damage_compensation) > 0 || Number(booking.refund_amount) > 0) && (
+                                  {(Number(booking.damage_compensation) > 0 || Number(booking.refund_amount) > 0 || Number(booking.pending_amount) > 0) && (
                                     <div className="mt-2 space-y-1 bg-gray-50 p-2 rounded-lg border border-gray-100">
                                       {Number(booking.damage_compensation) > 0 && (
                                         <>
                                           <div className="text-xs font-semibold text-red-600">Damage Compensation: {formatCurrency(booking.damage_compensation)}</div>
-                                          {booking.damage_description && <div className="text-[10px] text-gray-500 italic">Notes: {booking.damage_description}</div>}
                                         </>
                                       )}
+                                      {Number(booking.extra_charges) > 0 && (
+                                        <>
+                                          <div className="text-xs font-semibold text-red-600">Extra Charges: {formatCurrency(booking.extra_charges)}</div>
+                                        </>
+                                      )}
+                                      {booking.damage_notes && <div className="text-[10px] text-gray-500 italic">Notes: {booking.damage_notes}</div>}
                                       {Number(booking.refund_amount) > 0 && (
                                         <div className="text-xs font-semibold text-green-600">Refund: {formatCurrency(booking.refund_amount)}</div>
+                                      )}
+                                      {Number(booking.pending_amount) > 0 && (
+                                        <div className="text-xs font-bold text-red-600 uppercase tracking-widest mt-1">Pending Due: {formatCurrency(booking.pending_amount)}</div>
                                       )}
                                     </div>
                                   )}
@@ -457,49 +470,35 @@ export default function Admin() {
                                       View Details
                                     </button>
 
-                                    {status.label === 'Paid' || status.label === 'Pending' ? (
-                                      <>
-                                        <button 
-                                          onClick={() => handleMarkReturned(booking.reserve_id)}
-                                          disabled={actionLoading === booking.reserve_id}
-                                          className="text-left text-[11px] font-bold uppercase tracking-wider text-green-600 hover:bg-green-50 px-2.5 py-2 rounded transition-colors disabled:opacity-50 flex items-center gap-2"
-                                        >
-                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                          {actionLoading === booking.reserve_id ? 'Updating...' : 'Mark Returned'}
-                                        </button>
-                                        <button 
-                                          onClick={() => { setDamageForm({ amount: '', description: '', reserve_id: booking.reserve_id }); setFormError(''); setShowDamageModal(true); }}
-                                          className="text-left text-[11px] font-bold uppercase tracking-wider text-red-500 hover:bg-red-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2"
-                                        >
-                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                          Add Damage
-                                        </button>
-                                        <button onClick={() => { setSelectedBooking(booking); setShowInvoiceModal(true); }}
-                                          className="text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 hover:text-forest hover:bg-gray-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2">
-                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                          View Invoice
-                                        </button>
-                                      </>
-                                    ) : status.label === 'Cancelled' ? (
+                                    {((new Date(booking.return_date) < new Date() || booking.completed_at) && !booking.cancellation_details) && (
+                                      <button 
+                                        onClick={() => { setDamageForm({ amount: '', description: '', reserve_id: booking.reserve_id, amount_paid: booking.amount_paid || (booking.total_pay && !booking.pending_amount ? booking.total_pay : booking.estimated_total), total_pay: booking.total_pay || booking.estimated_total, extra_charges: '' }); setFormError(''); setShowDamageModal(true); }}
+                                        className="text-left text-[11px] font-bold uppercase tracking-wider text-red-500 hover:bg-red-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                        Add Damage
+                                      </button>
+                                    )}
+
+                                    <button onClick={() => { setSelectedBooking(booking); setShowInvoiceModal(true); }}
+                                      className="text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 hover:text-forest hover:bg-gray-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2">
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                      View Invoice
+                                    </button>
+
+                                    {status.label === 'Cancelled' && (
                                       <button onClick={() => { setSelectedBooking(booking); setShowRefundModal(true); }}
                                         className="text-left text-[11px] font-bold uppercase tracking-wider text-purple-600 hover:bg-purple-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2">
                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
                                         Refund Info
                                       </button>
-                                    ) : status.label === 'Completed' ? (
-                                      <>
-                                        <button onClick={() => { setSelectedBooking(booking); setShowInvoiceModal(true); }}
-                                          className="text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 hover:text-forest hover:bg-gray-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2">
-                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                          View Invoice
-                                        </button>
-                                        <button onClick={() => handleViewHistory(booking)}
-                                          className="text-left text-[11px] font-bold uppercase tracking-wider text-blue-600 hover:bg-blue-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2">
-                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                                          Customer History
-                                        </button>
-                                      </>
-                                    ) : null}
+                                    )}
+
+                                    <button onClick={() => handleViewHistory(booking)}
+                                      className="text-left text-[11px] font-bold uppercase tracking-wider text-blue-600 hover:bg-blue-50 px-2.5 py-2 rounded transition-colors flex items-center gap-2">
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                                      Customer History
+                                    </button>
                                   </div>
                                 </td>
                               </tr>
@@ -830,21 +829,42 @@ export default function Admin() {
 
       {/* ADD DAMAGE MODAL */}
       {showDamageModal && (
-        <Modal title="Add Damage Compensation" onClose={() => setShowDamageModal(false)}>
+        <Modal title="Add Post-Rental Charges" onClose={() => setShowDamageModal(false)}>
           <form onSubmit={handleAddDamage} className="space-y-4">
             <div className="bg-red-50 text-red-600 text-sm p-4 rounded-xl mb-4 border border-red-100">
-              <span className="font-bold">Warning:</span> Recording damage will recalculate the final rental payment for reservation #{damageForm.reserve_id}.
+              <span className="font-bold">Warning:</span> Recording extra charges will recalculate the final rental payment for reservation #{damageForm.reserve_id}.
             </div>
-            <div>
-              <label className={labelCls}>Damage Amount (₹) *</label>
-              <input type="number" min="0" step="0.01" className={inputCls} placeholder="e.g. 5000" 
-                value={damageForm.amount} onChange={(e) => setDamageForm(p => ({ ...p, amount: e.target.value }))} required />
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Damage Amount (₹) *</label>
+                <input type="number" min="0" step="0.01" className={inputCls} placeholder="e.g. 5000" 
+                  value={damageForm.amount} onChange={(e) => setDamageForm(p => ({ ...p, amount: e.target.value }))} required />
+              </div>
+              <div>
+                <label className={labelCls}>Extra Charges (₹)</label>
+                <input type="number" min="0" step="0.01" className={inputCls} placeholder="e.g. 500" 
+                  value={damageForm.extra_charges || ''} onChange={(e) => setDamageForm(p => ({ ...p, extra_charges: e.target.value }))} />
+              </div>
             </div>
+
             <div>
               <label className={labelCls}>Damage Description / Notes</label>
-              <textarea className={`${inputCls} resize-none h-24`} placeholder="e.g. Front bumper scratch, interior cleaning charge..." 
+              <textarea className={`${inputCls} resize-none h-24`} placeholder="e.g. Front bumper scratch, late return fee..." 
                 value={damageForm.description} onChange={(e) => setDamageForm(p => ({ ...p, description: e.target.value }))} />
             </div>
+
+            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-sm mt-4 space-y-2">
+              <div className="flex justify-between text-gray-500">
+                <span>Original Amount Paid</span>
+                <span>{formatCurrency(damageForm.amount_paid || 0)}</span>
+              </div>
+              <div className="flex justify-between font-bold text-red-600 border-t border-gray-200 pt-2">
+                <span>Calculated Outstanding Due</span>
+                <span>{formatCurrency(Math.max(0, (damageForm.total_pay || 0) + Number(damageForm.amount || 0) + Number(damageForm.extra_charges || 0) - (damageForm.amount_paid || 0)))}</span>
+              </div>
+            </div>
+
             {formError && <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">{formError}</p>}
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setShowDamageModal(false)}
@@ -853,7 +873,7 @@ export default function Admin() {
               </button>
               <button type="submit" disabled={damageLoading}
                 className="flex-1 bg-orange text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-orange/90 disabled:opacity-60">
-                {damageLoading ? 'Applying…' : 'Apply Compensation'}
+                {damageLoading ? 'Applying…' : 'Apply Charges'}
               </button>
             </div>
           </form>
@@ -909,8 +929,33 @@ export default function Admin() {
               </div>
               {selectedBooking.total_pay && (
                 <div className="flex justify-between text-green-700 font-bold bg-green-50 p-2 rounded-lg border border-green-100 mt-2">
-                  <span>Actual Amount Paid</span>
-                  <span>{formatCurrency(selectedBooking.total_pay)}</span>
+                  <span>Already Paid</span>
+                  <span>{formatCurrency(selectedBooking.amount_paid || (selectedBooking.total_pay && !selectedBooking.pending_amount ? selectedBooking.total_pay : selectedBooking.estimated_total))}</span>
+                </div>
+              )}
+              {(Number(selectedBooking.damage_compensation) > 0 || Number(selectedBooking.extra_charges) > 0) && (
+                <div className="space-y-1 bg-gray-50 p-3 rounded-lg border border-gray-100 mt-2">
+                  {Number(selectedBooking.damage_compensation) > 0 && (
+                    <div className="flex justify-between text-red-600 font-semibold">
+                      <span>Damage Compensation</span>
+                      <span>+{formatCurrency(selectedBooking.damage_compensation)}</span>
+                    </div>
+                  )}
+                  {Number(selectedBooking.extra_charges) > 0 && (
+                    <div className="flex justify-between text-red-600 font-semibold">
+                      <span>Extra Charges</span>
+                      <span>+{formatCurrency(selectedBooking.extra_charges)}</span>
+                    </div>
+                  )}
+                  {selectedBooking.damage_notes && (
+                    <p className="text-[10px] text-gray-500 italic mt-1 text-right">Notes: {selectedBooking.damage_notes}</p>
+                  )}
+                </div>
+              )}
+              {Number(selectedBooking.pending_amount) > 0 && (
+                <div className="flex justify-between text-red-700 font-bold bg-red-50 p-2 rounded-lg border border-red-200 mt-2">
+                  <span>Pending Due</span>
+                  <span>{formatCurrency(selectedBooking.pending_amount)}</span>
                 </div>
               )}
             </div>
@@ -925,18 +970,32 @@ export default function Admin() {
             <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-sm">
               <p className="font-bold text-red-800 mb-1">Cancellation Reason:</p>
               <p className="text-red-700">{selectedBooking.cancellation_reason}</p>
-              <p className="text-red-600 mt-2 italic">"{selectedBooking.cancellation_details}"</p>
+              {selectedBooking.cancellation_details && 
+               selectedBooking.cancellation_details !== selectedBooking.cancellation_reason && 
+               selectedBooking.cancellation_details !== `${selectedBooking.cancellation_reason}: ${selectedBooking.cancellation_reason}` && (
+                <p className="text-red-600 mt-2 italic">"{selectedBooking.cancellation_details}"</p>
+              )}
             </div>
             
             <div className="border border-gray-100 rounded-xl p-4 space-y-3 text-sm">
               <div className="flex justify-between text-gray-600">
-                <span>Estimated Rental Cost</span>
-                <span className="font-medium">{formatCurrency(selectedBooking.estimated_total)}</span>
+                <span>Base Rental Cost</span>
+                <span className="font-medium">{formatCurrency(selectedBooking.base_rent)}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Non-refundable GST</span>
+                <span className="font-medium text-red-500">{formatCurrency(selectedBooking.tax_amount)}</span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Refund Eligibility</span>
-                <span className="font-bold text-purple-600">{selectedBooking.refund_percentage}%</span>
+                <span className="font-bold text-purple-600">{selectedBooking.refund_percentage}% of Base Rent</span>
               </div>
+              {Number(selectedBooking.damage_compensation) > 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span>Damage Deduction</span>
+                  <span className="font-bold text-red-600">-{formatCurrency(selectedBooking.damage_compensation)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-forest font-semibold pt-3 border-t border-gray-50">
                 <span>Final Refund Processed</span>
                 <span className="text-lg text-green-600">{formatCurrency(selectedBooking.refund_amount)}</span>
@@ -1013,6 +1072,17 @@ export default function Admin() {
               </div>
             </div>
 
+            {selectedBooking.cancellation_details && (
+              <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-sm">
+                <p className="font-bold text-red-800 mb-1">Cancellation Notice:</p>
+                <p className="text-red-700">{selectedBooking.cancellation_reason}</p>
+                {selectedBooking.cancellation_details !== selectedBooking.cancellation_reason && 
+                 selectedBooking.cancellation_details !== `${selectedBooking.cancellation_reason}: ${selectedBooking.cancellation_reason}` && (
+                  <p className="text-red-600 mt-2 italic">"{selectedBooking.cancellation_details}"</p>
+                )}
+              </div>
+            )}
+
             <div className="border border-gray-200 rounded-lg overflow-hidden">
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-50 text-gray-600">
@@ -1039,20 +1109,51 @@ export default function Admin() {
                       <td className="px-4 py-3 text-right text-red-600 font-semibold">{formatCurrency(selectedBooking.damage_compensation)}</td>
                     </tr>
                   )}
-                  {Number(selectedBooking.refund_amount) > 0 && (
+                  {Number(selectedBooking.extra_charges) > 0 && (
                     <tr>
-                      <td className="px-4 py-3 text-green-600 font-semibold">Refund Applied</td>
-                      <td className="px-4 py-3 text-right text-green-600 font-semibold">-{formatCurrency(selectedBooking.refund_amount)}</td>
+                      <td className="px-4 py-3 text-red-600 font-semibold">Extra Charges</td>
+                      <td className="px-4 py-3 text-right text-red-600 font-semibold">{formatCurrency(selectedBooking.extra_charges)}</td>
                     </tr>
                   )}
+                  {Number(selectedBooking.refund_amount) > 0 && (
+                    <>
+                      <tr>
+                        <td className="px-4 py-2 text-gray-500 italic text-xs">Note: GST/Platform charges are non-refundable</td>
+                        <td className="px-4 py-2 text-right text-gray-500 italic text-xs">Retained</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-green-600 font-semibold">Refund Applied (on base rent)</td>
+                        <td className="px-4 py-3 text-right text-green-600 font-semibold">-{formatCurrency(selectedBooking.refund_amount)}</td>
+                      </tr>
+                    </>
+                  )}
+                  <tr>
+                    <td className="px-4 py-3 text-gray-600 font-medium">Already Paid</td>
+                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(selectedBooking.amount_paid || (selectedBooking.total_pay && !selectedBooking.pending_amount ? selectedBooking.total_pay : selectedBooking.estimated_total))}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
 
-            <div className="flex justify-end pt-4">
-              <div className="w-1/2">
+            <div className="flex justify-between items-center pt-4">
+              {Number(selectedBooking.pending_amount) > 0 ? (
+                <div className="border-2 border-red-500 text-red-600 font-bold uppercase tracking-widest px-4 py-2 rounded-lg inline-block transform -rotate-3">
+                  Payment Pending
+                </div>
+              ) : (
+                <div className="text-green-600 font-bold uppercase tracking-widest px-4 py-2 bg-green-50 rounded-lg inline-block">
+                  Fully Paid
+                </div>
+              )}
+              <div className="w-1/2 text-right">
+                {Number(selectedBooking.pending_amount) > 0 && (
+                  <div className="flex justify-between mb-2">
+                    <span className="font-bold text-red-600 uppercase tracking-widest">Pending Due</span>
+                    <span className="font-display font-bold text-xl text-red-600">{formatCurrency(selectedBooking.pending_amount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between border-t-2 border-forest pt-3">
-                  <span className="font-bold text-forest uppercase tracking-widest">Total Paid</span>
+                  <span className="font-bold text-forest uppercase tracking-widest">Final Total</span>
                   <span className="font-display font-bold text-2xl text-forest">{formatCurrency(selectedBooking.total_pay || selectedBooking.estimated_total)}</span>
                 </div>
               </div>
