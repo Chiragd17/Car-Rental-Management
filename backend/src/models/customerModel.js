@@ -42,8 +42,8 @@ export const upsert = async ({
 }) => {
   const [result] = await db.execute(
     `INSERT INTO customer
-     (supabase_uid, first_name, last_name, email, contact_no, driving_license, house_no, city, country)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     (supabase_uid, first_name, last_name, email, contact_no, driving_license, nationality, govt_id_type, govt_id_number, house_no, city, country)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        first_name = COALESCE(VALUES(first_name), first_name),
        last_name  = COALESCE(VALUES(last_name), last_name),
@@ -55,6 +55,9 @@ export const upsert = async ({
       email,
       contactNo,
       drivingLicense,
+      null,
+      null,
+      null,
       houseNo,
       city,
       country
@@ -71,6 +74,9 @@ export const updateProfile = async (supabaseUid, fields) => {
     last_name,
     contact_no,
     driving_license,
+    nationality,
+    govt_id_type,
+    govt_id_number,
     house_no,
     city,
     country,
@@ -82,6 +88,9 @@ export const updateProfile = async (supabaseUid, fields) => {
          last_name       = COALESCE(?, last_name),
          contact_no      = COALESCE(?, contact_no),
          driving_license = COALESCE(?, driving_license),
+         nationality     = COALESCE(?, nationality),
+         govt_id_type    = COALESCE(?, govt_id_type),
+         govt_id_number  = COALESCE(?, govt_id_number),
          house_no        = COALESCE(?, house_no),
          city            = COALESCE(?, city),
          country         = COALESCE(?, country)
@@ -91,6 +100,9 @@ export const updateProfile = async (supabaseUid, fields) => {
       last_name   ?? null,
       contact_no  ?? null,
       driving_license ?? null,
+      nationality ?? null,
+      govt_id_type ?? null,
+      govt_id_number ?? null,
       house_no    ?? null,
       city        ?? null,
       country     ?? null,

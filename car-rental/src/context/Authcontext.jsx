@@ -29,6 +29,9 @@ export function AuthProvider({ children }) {
         last_name:  session.user.user_metadata?.last_name || session.user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
         contact_no: session.user.user_metadata?.contact_no || '',
         driving_license: session.user.user_metadata?.driving_license || '',
+        nationality: session.user.user_metadata?.nationality || 'Indian',
+        govt_id_type: session.user.user_metadata?.govt_id_type || '',
+        govt_id_number: session.user.user_metadata?.govt_id_number || '',
         city: session.user.user_metadata?.city || '',
         country: session.user.user_metadata?.country || '',
       })

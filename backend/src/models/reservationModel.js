@@ -157,7 +157,7 @@ export const getRecent = async (limit = 10) => {
   const [rows] = await db.execute(
     `SELECT r.reserve_id, r.reserve_date, r.pickup_date, r.return_date, r.pickup_location, r.cancellation_details,
             r.cancellation_reason, r.refund_amount, r.refund_percentage, r.tax_percentage, r.tax_amount, r.completed_at,
-            r.cust_id, c.first_name, c.last_name, c.email,
+            r.cust_id, c.first_name, c.last_name, c.email, c.govt_id_type, c.govt_id_number, c.driving_license,
             v.model, v.vehicle_type, v.daily_price,
             (r.number_of_days * v.daily_price) AS base_rent,
             (r.number_of_days * v.daily_price + r.tax_amount) AS estimated_total,
@@ -198,7 +198,7 @@ export const getBookingsByVehicleType = async () => {
 export const getFullDetailsById = async (reserveId) => {
   const [rows] = await db.execute(
     `SELECT r.*, 
-            c.first_name, c.last_name, c.email, c.contact_no, 
+            c.first_name, c.last_name, c.email, c.contact_no, c.govt_id_type, c.govt_id_number, c.driving_license,
             v.model, v.plate_no, v.vehicle_type, v.daily_price, v.image_url,
             (r.number_of_days * v.daily_price) AS base_rent,
             (r.number_of_days * v.daily_price + r.tax_amount) AS estimated_total,

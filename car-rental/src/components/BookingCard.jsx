@@ -4,9 +4,11 @@ import { QRCodeSVG } from 'qrcode.react'
 import { cancelReservation } from '../services/api'
 import { formatCurrency, formatDate, reservationStatus, statusColor } from '../utils/helpers'
 import CancelModal from './CancelModal'
+import { useAuth } from '../context/Authcontext'
 
 export default function BookingCard({ reservation, onCancelled }) {
   const navigate = useNavigate()
+  const { customer } = useAuth()
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [error, setError] = useState('')
 
@@ -213,8 +215,8 @@ export default function BookingCard({ reservation, onCancelled }) {
             <div className="mt-2 flex flex-col items-center bg-gray-50 border border-gray-100 p-3 rounded-xl w-full cursor-pointer hover:bg-gray-100 transition-colors"
                  onClick={() => navigate(`/reservation/${reserve_id}`)}>
               <QRCodeSVG 
-                value={`${import.meta.env.VITE_FRONTEND_URL}/reservation/${reserve_id}`} 
-                size={80}
+                value={`DriveElite Reservation #${reserve_id}\nVehicle: ${model} (${plate_no})\nDates: ${formatDate(pickup_date)} to ${formatDate(return_date)}\nLocation: ${pickup_location}\nKYC: ${customer?.govt_id_number && customer?.driving_license ? 'VERIFIED' : 'PENDING'}\nStatus: ${status}\nTotal: ${formatCurrency(total_pay || estimated_total)}`} 
+                size={120}
                 fgColor="#152b21"
               />
               <p className="text-[10px] text-forest font-bold uppercase tracking-widest mt-2 text-center">

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BookingCard from '../components/BookingCard'
 import { getMyReservations } from '../services/api'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/Authcontext'
 
 export default function MyBookings() {
   const { user } = useAuth()

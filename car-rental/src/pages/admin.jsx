@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/Authcontext'
 import {
   getDashboardStats,
   getAllVehicles,
@@ -889,9 +889,20 @@ export default function Admin() {
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Customer</p>
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold flex items-center gap-2">
+                  Customer
+                  {selectedBooking.govt_id_number && selectedBooking.driving_license && (
+                    <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[10px] font-bold">KYC VERIFIED ✅</span>
+                  )}
+                </p>
                 <p className="font-semibold text-forest mt-1">{selectedBooking.first_name} {selectedBooking.last_name}</p>
                 <p className="text-sm text-gray-500">{selectedBooking.email}</p>
+                {selectedBooking.govt_id_number && (
+                  <div className="mt-2 text-xs bg-white/50 p-2 rounded border border-gray-100">
+                    <p className="text-gray-500">{selectedBooking.govt_id_type || 'ID'}: <span className="font-mono text-forest font-semibold">{selectedBooking.govt_id_number}</span></p>
+                    <p className="text-gray-500">DL: <span className="font-mono text-forest font-semibold">{selectedBooking.driving_license}</span></p>
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Vehicle</p>
@@ -1056,8 +1067,8 @@ export default function Admin() {
               
               <div className="flex flex-col items-center">
                 <QRCodeSVG 
-                  value={`${import.meta.env.VITE_FRONTEND_URL}/reservation/${selectedBooking.reserve_id}`} 
-                  size={64}
+                  value={`DriveElite Invoice\nID: #${selectedBooking.reserve_id}\nCustomer: ${selectedBooking.first_name} ${selectedBooking.last_name}\nPhone: ${selectedBooking.contact_no || 'N/A'}\nKYC: ${selectedBooking.govt_id_number && selectedBooking.driving_license ? 'VERIFIED' : 'PENDING'}\nLocation: ${selectedBooking.pickup_location || 'Standard'}\nVehicle: ${selectedBooking.model}\nDates: ${formatDate(selectedBooking.pickup_date)} to ${formatDate(selectedBooking.return_date)}\nTotal Paid: ${formatCurrency(selectedBooking.amount_paid || (selectedBooking.total_pay && !selectedBooking.pending_amount ? selectedBooking.total_pay : selectedBooking.estimated_total))}`} 
+                  size={120}
                   fgColor="#152b21"
                 />
                 <p className="text-[8px] text-forest font-bold uppercase tracking-widest mt-1.5">Scan to Verify</p>

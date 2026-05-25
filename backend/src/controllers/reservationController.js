@@ -29,14 +29,14 @@ import * as RentModel from '../models/rentModel.js';
 function calculateRefundPercentage(pickupDate) {
   const now = new Date();
   
-  // Robust parsing: convert to ISO string and slice to get YYYY-MM-DD
-  const dateStr = typeof pickupDate === 'string' 
-    ? pickupDate 
-    : new Date(pickupDate).toISOString();
-  const yyyymmdd = dateStr.slice(0, 10);
-  
-  // Assuming standard pickup starts at 09:00 AM on the pickup date
-  const pickup = new Date(`${yyyymmdd}T09:00:00`);
+  const pickupDateObj = new Date(pickupDate)
+  // Construct 9 AM on the local day of the pickup date
+  const pickup = new Date(
+    pickupDateObj.getFullYear(),
+    pickupDateObj.getMonth(),
+    pickupDateObj.getDate(),
+    9, 0, 0
+  )
   
   const diffMs = pickup.getTime() - now.getTime();
   const hoursUntilPickup = diffMs / (1000 * 60 * 60);

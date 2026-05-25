@@ -123,8 +123,8 @@ export default function ReservationDetails() {
             </div>
             <div className="flex flex-col items-center p-4 bg-white border border-gray-100 shadow-sm rounded-2xl">
               <QRCodeSVG 
-                value={`${import.meta.env.VITE_FRONTEND_URL}/reservation/${reservation.reserve_id}`} 
-                size={100}
+                value={`DriveElite Verification\nID: #${reservation.reserve_id}\nName: ${reservation.first_name} ${reservation.last_name}\nPhone: ${reservation.contact_no || 'N/A'}\nKYC: ${reservation.govt_id_number && reservation.driving_license ? 'VERIFIED' : 'PENDING'}\nLocation: ${reservation.pickup_location}\nVehicle: ${reservation.model} (${reservation.plate_no})\nStatus: ${paymentStatus}\nTotal: ${formatCurrency(reservation.total_pay || reservation.estimated_total)}`} 
+                size={140}
                 fgColor="#152b21"
               />
               <div className="mt-3 flex items-center gap-1.5 text-green-600 font-bold text-xs uppercase tracking-wider">
