@@ -10,6 +10,7 @@ import Payment    from './pages/Payment'
 import MyBookings from './pages/MyBookings'
 import Profile    from './pages/Profile'
 import Admin      from './pages/admin'
+import ReservationDetails from './pages/ReservationDetails'
 
 export default function App() {
   return (
@@ -26,6 +27,8 @@ export default function App() {
             <Route path="/bookings" element={<MyBookings />} />
             <Route path="/profile"  element={<Profile />}    />
             <Route path="/admin"    element={<Admin />}      />
+            <Route path="/reservation/:id" element={<ReservationDetails />} />
+            <Route path="/invoice/:id"     element={<ReservationDetails />} />
           </Routes>
         </div>
       </AuthProvider>

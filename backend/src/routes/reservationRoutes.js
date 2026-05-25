@@ -11,6 +11,7 @@ import {
   update,
   cancel,
   markCompleted,
+  getFullDetails,
 } from '../controllers/reservationController.js';
 
 const router = Router();
@@ -26,6 +27,9 @@ router.get('/my',  getMy);
 
 // GET    /reservations/:id   → single reservation
 router.get('/:id', getOne);
+
+// GET    /reservations/:id/full → full details for invoice/qr
+router.get('/:id/full', getFullDetails);
 
 // PUT    /reservations/:id   → update dates / location
 router.put('/:id', update);

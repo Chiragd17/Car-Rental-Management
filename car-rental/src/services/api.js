@@ -1,11 +1,13 @@
 import axios from 'axios'
 
 // Base URL matches app.js route mounting: /api/...
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 const api = axios.create({
   baseURL: BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 
+    'Content-Type': 'application/json'
+  },
 })
 
 // Attach Supabase JWT to every request
@@ -65,6 +67,10 @@ export const getMyReservations = () =>
 // GET /api/reservations/:id
 export const getReservation = (id) =>
   api.get(`/reservations/${id}`).then((r) => r.data)
+
+// GET /api/reservations/:id/full
+export const getFullReservationDetails = (id) =>
+  api.get(`/reservations/${id}/full`).then((r) => r.data)
 
 // DELETE /api/reservations/:id  — Cancel with reason + refund calculation
 // body: { cancellation_reason, cancellation_details }

@@ -61,7 +61,12 @@ export default function AuthModal() {
     finally { setLoading(false) }
   }
 
-  const handleGoogle = () => supabase.auth.signInWithOAuth({ provider: 'google' })
+  const handleGoogle = () => supabase.auth.signInWithOAuth({ 
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin
+    }
+  })
 
   const inputCls = `w-full px-4 py-3 rounded-xl border border-white/20 bg-white/10 text-white
     placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange/50 text-sm backdrop-blur-sm transition-all`

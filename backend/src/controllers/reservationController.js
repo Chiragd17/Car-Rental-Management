@@ -328,3 +328,24 @@ export const markCompleted = asyncHandler(async (req, res) => {
     connection.release();
   }
 });
+
+// ─────────────────────────────────────────────────────────────
+// GET /reservations/:id/full — Get full details for QR/Invoice
+// ─────────────────────────────────────────────────────────────
+export const getFullDetails = asyncHandler(async (req, res) => {
+  const reservation = await ReservationModel.getFullDetailsById(req.params.id);
+
+  if (!reservation) {
+    throw new ApiError(404, `Reservation ${req.params.id} not found`);
+  }
+
+  // Security: Ensure the user is either an admin or the owner of the reservation
+  if (req.user.role !== 'admin') {
+    const customer = await CustomerModel.findBySupabaseUid(req.user.sub);
+    if (!customer || customer.cust_id !== reservation.cust_id) {
+      throw new ApiError(403, 'Not authorized to access this reservation');
+    }
+  }
+
+  res.status(200).json({ success: true, data: reservation });
+});

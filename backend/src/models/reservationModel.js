@@ -193,3 +193,23 @@ export const getBookingsByVehicleType = async () => {
   );
   return rows;
 };
+
+// ── Full Details for Invoice/QR ─────────────────────────────
+export const getFullDetailsById = async (reserveId) => {
+  const [rows] = await db.execute(
+    `SELECT r.*, 
+            c.first_name, c.last_name, c.email, c.contact_no, 
+            v.model, v.plate_no, v.vehicle_type, v.daily_price, v.image_url,
+            (r.number_of_days * v.daily_price) AS base_rent,
+            (r.number_of_days * v.daily_price + r.tax_amount) AS estimated_total,
+            rn.total_pay, rn.amount_paid, rn.pending_amount, rn.extra_charges, 
+            rn.damage_compensation, rn.damage_description, rn.damage_notes, rn.refund
+     FROM reservation r
+     JOIN customer c ON r.cust_id = c.cust_id
+     JOIN vehicle v ON r.vehicle_id = v.vehicle_id
+     LEFT JOIN rent rn ON r.reserve_id = rn.reserve_id
+     WHERE r.reserve_id = ?`,
+    [reserveId]
+  );
+  return rows[0];
+};

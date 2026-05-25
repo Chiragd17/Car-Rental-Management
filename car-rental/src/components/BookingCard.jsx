@@ -1,9 +1,12 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { QRCodeSVG } from 'qrcode.react'
 import { cancelReservation } from '../services/api'
 import { formatCurrency, formatDate, reservationStatus, statusColor } from '../utils/helpers'
 import CancelModal from './CancelModal'
 
 export default function BookingCard({ reservation, onCancelled }) {
+  const navigate = useNavigate()
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [error, setError] = useState('')
 
@@ -202,10 +205,22 @@ export default function BookingCard({ reservation, onCancelled }) {
             </div>
             {isCancellable && (
               <button onClick={() => setShowCancelModal(true)}
-                className="text-sm font-medium text-red-600 px-4 py-2 rounded-xl border border-red-100 hover:bg-red-50 transition-colors">
+                className="text-sm font-medium text-red-600 px-4 py-2 rounded-xl border border-red-100 hover:bg-red-50 transition-colors w-full">
                 Cancel Booking
               </button>
             )}
+
+            <div className="mt-2 flex flex-col items-center bg-gray-50 border border-gray-100 p-3 rounded-xl w-full cursor-pointer hover:bg-gray-100 transition-colors"
+                 onClick={() => navigate(`/reservation/${reserve_id}`)}>
+              <QRCodeSVG 
+                value={`${import.meta.env.VITE_FRONTEND_URL}/reservation/${reserve_id}`} 
+                size={80}
+                fgColor="#152b21"
+              />
+              <p className="text-[10px] text-forest font-bold uppercase tracking-widest mt-2 text-center">
+                Scan to View Booking<br/>& Invoice
+              </p>
+            </div>
           </div>
         </div>
 

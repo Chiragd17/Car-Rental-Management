@@ -14,6 +14,7 @@ import {
   getCustomerHistory
 } from '../services/adminApi'
 import html2pdf from 'html2pdf.js'
+import { QRCodeSVG } from 'qrcode.react'
 import { formatCurrency, formatDate } from '../utils/helpers'
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -1052,6 +1053,16 @@ export default function Admin() {
                 <h1 className="font-display font-bold text-3xl text-forest">INVOICE</h1>
                 <p className="text-sm text-gray-500 mt-1">Ref: #{selectedBooking.reserve_id}-{new Date().getFullYear()}</p>
               </div>
+              
+              <div className="flex flex-col items-center">
+                <QRCodeSVG 
+                  value={`${import.meta.env.VITE_FRONTEND_URL}/reservation/${selectedBooking.reserve_id}`} 
+                  size={64}
+                  fgColor="#152b21"
+                />
+                <p className="text-[8px] text-forest font-bold uppercase tracking-widest mt-1.5">Scan to Verify</p>
+              </div>
+
               <div className="text-right">
                 <h2 className="font-bold text-forest">DriveElite Rentals</h2>
                 <p className="text-sm text-gray-500">Mumbai, India</p>
